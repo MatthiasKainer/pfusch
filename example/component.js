@@ -1,8 +1,8 @@
-import { pfusch, script, css, html } from '../pfusch.js';
+import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
 
 pfusch("my-list-element", { id: '', completed: false, text: "" }, state => [
     css`
-        li { cursor: pointer; }
+        li { cursor: pointer; margin: 2rem 0.5em; }
         li:hover { color: #f0f; }
         .completed { text-decoration: line-through; }
     `,
@@ -23,10 +23,10 @@ pfusch("my-list", { items: [] }, state => [
 
 pfusch("my-count", { count: 0 }, state => [
     html.p(`Count: ${state.count}`),
+    css`button { padding: 1rem; background-color: #f0f; color: #fff; cursor: pointer; }`,
     html.button({
-        id: 'increment',
         click: () => state.count++
-    }, 'Increment')
+    }, 'Increment'),
 ])
 
 pfusch("my-component", { count: 0, items: [] }, (state) => [
@@ -36,7 +36,7 @@ pfusch("my-component", { count: 0, items: [] }, (state) => [
         html.button({ click: () => state.count = 0 }, 'Reset')
     ),
     script(async () => {
-        const data = await fetch("/pfusch/example/data.json")
+        const data = await fetch("https://matthiaskainer.github.io/pfusch/example/data.json")
                 .then(response => response.json());
         state.items = data.todos;
     })

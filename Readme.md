@@ -69,10 +69,7 @@ pfusch("my-list", { items: [] }, state => [
 
 pfusch("my-count", { count: 0 }, state => [
     html.p(`Count: ${state.count}`),
-    html.button({
-        id: 'increment',
-        click: () => state.count++
-    }, 'Increment')
+    html.button({ click: () => state.count++ }, 'Increment')
 ])
 
 pfusch("my-component", { count: 0, items: [] }, (state) => [

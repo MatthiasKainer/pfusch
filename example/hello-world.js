@@ -1,8 +1,9 @@
-import { pfusch, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
+import { pfusch, html, css } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
 
 pfusch("hello-world", () => [
+    css(`h1, h2 { text-align: center; }`),
     html.div(
-        html.h1`hello`,
-        html.p`world!`
+        html.h2`hello`,
+        html.h1`pfusch!`
     )
 ]);

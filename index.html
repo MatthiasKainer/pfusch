@@ -1,10 +1,24 @@
 <html>
     <head>
         <title>Pfusch Test</title>
+        <style>
+            body {
+                font-family: Roboto;
+            }
+            div {
+                border-radius: .5rem !important;
+                color: white;
+                background-color: #424242;
+                width: 80%;      
+                padding: 2rem 6rem;   
+            }
+        </style>
     </head>
     <body>
-        <hello-world></hello-world>
-        <my-component></my-component>
+        <div>
+            <hello-world></hello-world>
+            <my-component></my-component>
+        </div>
         <script src="example/component.js" type="module"></script>
         <script src="example/hello-world.js" type="module"></script>
     </body>
