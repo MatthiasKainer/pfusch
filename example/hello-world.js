@@ -1,4 +1,4 @@
-import { pfusch, html } from 'https://github.com/MatthiasKainer/pfusch/blob/main/pfusch.js';
+import { pfusch, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
 
 pfusch("hello-world", () => [
     html.div(
