@@ -1,0 +1,7 @@
+{
+    "todos": [
+        { "id": 1, "text": "Learn pure", "completed": true },
+        { "id": 2, "text": "Learn Firebase", "completed": false },
+        { "id": 3, "text": "Learn GraphQL", "completed": false }
+    ]
+}
