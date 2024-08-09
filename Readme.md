@@ -31,7 +31,7 @@ touch hello-world.js
 3. Start using `pfusch` in your `hello-world.js`:
 
 ```javascript
-import { pfusch, html } from './pfusch.js';
+import { pfusch, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
 
 pfusch("hello-world", () => [
     html.div(
@@ -44,7 +44,7 @@ pfusch("hello-world", () => [
 4. Go nuts with state and styles and stuff
 
 ```js
-import { pfusch, script, css, html } from './pfusch.js';
+import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
 
 pfusch("my-list-element", { id: '', completed: false, text: "" }, state => [
     css`
@@ -88,5 +88,7 @@ pfusch("my-component", { count: 0, items: [] }, (state) => [
     })
 ]);
 ```
+
+See it in action on https://matthiaskainer.github.io/pfusch/
 
 For more information and detailed documentation, please refer to the official `pfusch` documentation. Which doesn't exist. Happy trial and error!
