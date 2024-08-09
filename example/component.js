@@ -36,7 +36,7 @@ pfusch("my-component", { count: 0, items: [] }, (state) => [
         html.button({ click: () => state.count = 0 }, 'Reset')
     ),
     script(async () => {
-        const data = await fetch("data.json")
+        const data = await fetch("/pfusch/example/data.json")
                 .then(response => response.json());
         state.items = data.todos;
     })
