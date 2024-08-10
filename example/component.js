@@ -3,7 +3,7 @@ import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfus
 pfusch("my-list-element", { id: '', completed: false, text: "" }, state => [
     css`
         li { cursor: pointer; margin: 2rem 0.5em; }
-        li:hover { color: var(--${type}-color); }
+        li:hover { color: var(--primary-color); }
         .completed { text-decoration: line-through; }
     `,
     html.li({
