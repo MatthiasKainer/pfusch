@@ -2,9 +2,25 @@ import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfus
 
 pfusch("my-list-element", { id: '', completed: false, text: "" }, state => [
     css`
-        li { cursor: pointer; margin: 2rem 0.5em; }
-        li:hover { color: var(--primary-color); }
-        .completed { text-decoration: line-through; }
+        li {
+            list-style: none;
+            background-color: hsl(0, 0%, 50%);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 0.5rem;
+            cursor: pointer;
+        }
+        li:hover { 
+            background-color: hsl(0, 0%, 40%);
+            color: var(--accent-color); 
+        }
+        li:active {
+            background-color: hsl(0, 0%, 45%); 
+        }
+        li.completed {
+            text-decoration: line-through;
+            color: var(--primary-background-color); 
+        }
     `,
     html.li({
         id: `li-${state.id}`,
