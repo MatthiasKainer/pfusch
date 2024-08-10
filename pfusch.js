@@ -16,11 +16,11 @@ function asJson(jsonString) {
     }
 }
 
-function toString(string, ...tags) {  
+function toString(string, ...tags) {
     return (typeof string === 'string') ? string : string.reduce((acc, part, i) => {
         return acc + part + (tags[i] || '');
     }, '');
-  }
+}
 
 export function css(style, ...tags) {
     return {
@@ -124,8 +124,12 @@ export function pfusch(tagName, initialState, template) {
             this.state[name] = asJson(newValue);
         }
 
+        triggerEvent(eventName, detail) {
+            this.dispatchEvent(new CustomEvent(eventName, { detail }));
+        }
+
         render() {
-            const parts = template(this.state);
+            const parts = template(this.state, this.triggerEvent.bind(this));
             const styles = parts.filter(part => part.type === 'style');
             const elementParts = [...parts.filter(part => part instanceof Element)];
             const scripts = parts.filter(part => part.type === 'script');
