@@ -8,7 +8,7 @@ function oid(o) {
 const s = "string";
 function json(jsonString) {
     try {
-        return (!jsonString || typeof jsonString === s) ? jsonString : JSON.parse(jsonString);
+        return (!(jsonString && typeof jsonString === "string")) ? jsonString : JSON.parse(jsonString);
     } catch (error) {
         return jsonString;
     }
