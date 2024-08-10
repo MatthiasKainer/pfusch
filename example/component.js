@@ -1,4 +1,4 @@
-import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.js';
+import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.min.js';
 
 pfusch("my-list-element", { id: '', completed: false, text: "" }, (state, trigger) => [
     css`
