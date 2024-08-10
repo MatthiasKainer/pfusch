@@ -34,10 +34,6 @@ pfusch("my-list-element", { id: '', completed: false, text: "" }, (state, trigge
 
 pfusch("add-todo", (_, trigger) => [
     css`
-    :host {
-        margin-left: 1rem;
-        padding-left: 40px;
-    }
     input {
         font-family: var(--font-family);
         border: 1px solid hsl(0, 0%, 50%);
@@ -68,6 +64,7 @@ pfusch("add-todo", (_, trigger) => [
 ])
 
 pfusch("my-list", { items: [] }, state => [
+    css` ul { padding: 0; margin: 0; } `,
     html[`add-todo`]({
         items: state.items,
         add: ({ detail }) => state.items = [...state.items, { id: state.items.length + 1, completed: false, text: detail }]
@@ -105,6 +102,7 @@ const buttonStyle = (type) => css`
         user-select: none;
         -webkit-user-select: none;
         touch-action: manipulation;
+        margin: 0.1rem;
     }
 
     button:hover,
@@ -112,10 +110,16 @@ const buttonStyle = (type) => css`
         background-color: var(--${type}-color-state);
     }
 
-    button:active { background-color: var(--${type}-color);color: var(--${type}-color-state); }`;
+    button:active { background-color: var(--${type}-color);color: var(--${type}-color-state); }
+    
+    @media screen and (max-width: 600px) {
+        button { width: 100%; }
+    }
+    `;
 
 
 pfusch("my-count", { count: 0 }, state => [
+    css` p { font-size: 1.5rem; margin-left: 1rem; } `,
     html.p(`Count: ${state.count}`),
     buttonStyle('primary'),
     html.button({
