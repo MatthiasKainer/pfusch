@@ -17,19 +17,17 @@ function asJson(jsonString) {
 }
 
 function toString(string, ...tags) {  
-    let str = string[0];
-    for (let i = 0; i < tags.length; i++) {
-      str += tags[i] + string[i + 1];
-    }
-    return str;
+    return (typeof string === 'string') ? string : string.reduce((acc, part, i) => {
+        return acc + part + (tags[i] || '');
+    }, '');
   }
 
-export function css(style) {
+export function css(style, ...tags) {
     return {
         type: 'style',
         content: () => {
             var adoptedStyleSheets = new CSSStyleSheet();
-            adoptedStyleSheets.replaceSync(style);
+            adoptedStyleSheets.replaceSync(toString(style, ...tags));
             return adoptedStyleSheets;
         }
     };
@@ -50,12 +48,14 @@ class Element {
     constructor(name, ...rest) {
         this.element = document.createElement(name);
         if (!rest) return;
-        rest.forEach(option => {
+        for (let i = 0; i < rest.length; i++) {
+            let option = rest[i];
             if (typeof option === 'string') {
                 this.element.innerHTML = option;
             }
             else if (option && Array.isArray(option) && option.raw) {
-                this.element.innerHTML = toString(option);
+                this.element.innerHTML = toString(option, ...rest.slice(i + 1));
+                break;
             }
             else if (option && option instanceof Element) {
                 this.element.appendChild(option.get());
@@ -73,7 +73,7 @@ class Element {
                     }
                 });
             }
-        });
+        }
         if (this.element.id === '') {
             this.element.id = `${name}-${objectId(this.element)}`;
         }

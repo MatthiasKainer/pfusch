@@ -3,7 +3,7 @@ import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfus
 pfusch("my-list-element", { id: '', completed: false, text: "" }, state => [
     css`
         li { cursor: pointer; margin: 2rem 0.5em; }
-        li:hover { color: #f0f; }
+        li:hover { color: var(--${type}-color); }
         .completed { text-decoration: line-through; }
     `,
     html.li({
@@ -21,15 +21,51 @@ pfusch("my-list", { items: [] }, state => [
     ),
 ])
 
+const buttonStyle = (type) => css`
+    button {
+        background-color: var(--${type}-color);
+        border-radius: 8px;
+        border-style: none;
+        box-sizing: border-box;
+        color: #FFFFFF;
+        cursor: pointer;
+        display: inline-block;
+        font-size: 14px;
+        font-weight: 500;
+        height: 40px;
+        line-height: 20px;
+        list-style: none;
+        margin: 0;
+        outline: none;
+        padding: 10px 16px;
+        position: relative;
+        text-align: center;
+        text-decoration: none;
+        transition: color 100ms;
+        vertical-align: baseline;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+    }
+
+    button:hover,
+    button:focus {
+        background-color: var(--${type}-color-state);
+    }
+
+    button:active { background-color: var(--${type}-color);color: var(--${type}-color-state); }`;
+
+
 pfusch("my-count", { count: 0 }, state => [
     html.p(`Count: ${state.count}`),
-    css`button { padding: 1rem; background-color: #f0f; color: #fff; cursor: pointer; }`,
+    buttonStyle('primary'),
     html.button({
         click: () => state.count++
     }, 'Increment'),
 ])
 
 pfusch("my-component", { count: 0, items: [] }, (state) => [
+    buttonStyle('secondary'),
     html.div({ id: 'my-component' },
         html[`my-list`]({ items: state.items }),
         html[`my-count`]({ count: state.count }),

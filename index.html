@@ -2,16 +2,27 @@
     <head>
         <title>Pfusch Test</title>
         <style>
+            /* declare the color variables */
+            :root {
+                --primary-font-color: white;
+                --primary-background-color: #424242;
+                --primary-color: #EA4C89;
+                --primary-color-state: #F082AC;
+                --secondary-color: #2ea44f;
+                --secondary-color-state: #2ea4AC;
+                --accent-color: #FFC107;
+            }
             body {
                 font-family: Roboto;
             }
             div {
                 border-radius: .5rem !important;
-                color: white;
-                background-color: #424242;
+                color: var(--primary-font-color);
+                background-color: var(--primary-background-color);
                 width: 80%;      
                 padding: 2rem 6rem;   
             }
+
         </style>
     </head>
     <body>
