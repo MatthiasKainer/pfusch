@@ -1,9 +1,10 @@
 import { html, pfusch } from "../pfusch.js";
 import { buttonStyle } from './button.style.js';
 
-pfusch("load-script", {src: ""}, ({src}) => [
+pfusch("load-script", {load: "", src: ""}, ({load, src}) => [
     buttonStyle("primary"),
     html.button({
+        id: load,
         click: () => {
             const script = document.createElement("script");
             script.src = src;

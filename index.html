@@ -110,14 +110,17 @@
                 <todo-and-counter></todo-and-counter>
             </a-tab-item>
             <a-tab-item title="Table (Progressively Enhanced)">
-                <load-script src="example/table.js">Loading the script has a wait of 1 second to highlight the steps</load-script>
+                <load-script load="load-table" src="example/table.js">
+                    <button id="load-table"></button>
+                    <i>Loading the script has a wait of 1 second to highlight the steps</i>
+                </load-script>
                 <table-wrapper url="example/items.json">
                     <table>
                         <thead>
                             <tr>
-                                <th>Column 1</th>
-                                <th>Column 2</th>
-                                <th>Column 3</th>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>In Stock?</th>
                             </tr>
                         </thead>
                         <tbody id="table-body">
