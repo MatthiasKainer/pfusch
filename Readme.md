@@ -239,6 +239,29 @@ pfusch("my-triggerydo", { clicked: 0 }, ({clicked}, trigger) => [
 ])
 ```
 
+### Wait, how did you do the SSR thing? My CTO says I can't use a framework without SSR!
+
+do something like this:
+
+```js
+import puppeteer from 'puppeteer';
+
+async function ssr(url) {
+  const browser = await puppeteer.launch({headless: true});
+  const page = await browser.newPage();
+  await page.goto(url, {waitUntil: 'networkidle0'});
+  const html = await page.$eval('html', (element) => {
+    return element.getInnerHTML({includeShadowRoots: true});
+ });
+  await browser.close();
+  return html;
+}
+
+console.log(await ssr('https://matthiaskainer.github.io/pfusch/));
+```
+
+hydration then comes for free. 
+
 ### Styles are an issue! Whatever I define in the page is not applied to the component!
 
 That's because of the shadow dom. If you want to style the component from the outside, you can either use the `css` function, which will add a style to the component. If you want to just define some base classes that you can use in the component, you can use a `<style>` element with the id `pfusch-style`:
