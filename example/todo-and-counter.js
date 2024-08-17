@@ -1,4 +1,5 @@
-import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.min.js';
+import { pfusch, script, css, html } from '../pfusch.js';
+import { buttonStyle } from './button.style.js';
 
 pfusch("my-list-element", { id: '', completed: false, text: "" }, (state, trigger) => [
     css`
@@ -23,7 +24,6 @@ pfusch("my-list-element", { id: '', completed: false, text: "" }, (state, trigge
         }
     `,
     html.li({
-        id: `li-${state.id}`,
         class: state.completed ? 'completed' : '',
         click: () => {
             state.completed = !state.completed;
@@ -54,7 +54,7 @@ pfusch("add-todo", (_, trigger) => [
     `,
     html.label({ 'for': 'add-todo' }, '✒️'),
     html.input({
-        id: 'add-todo', type: 'text', placeholder: 'todo', keyup: (e) => {
+        type: 'text', placeholder: 'todo', keyup: (e) => {
             if (e.key === 'Enter') {
                 trigger("add", e.target.value);
                 e.target.value = '';
@@ -77,47 +77,6 @@ pfusch("my-list", { items: [] }, state => [
     ),
 ])
 
-const buttonStyle = (type) => css`
-    button {
-        background-color: var(--${type}-color);
-        border-radius: 8px;
-        border-style: none;
-        box-sizing: border-box;
-        color: #FFFFFF;
-        cursor: pointer;
-        display: inline-block;
-        font-size: 14px;
-        font-weight: 500;
-        height: 40px;
-        line-height: 20px;
-        list-style: none;
-        margin: 0;
-        outline: none;
-        padding: 10px 16px;
-        position: relative;
-        text-align: center;
-        text-decoration: none;
-        transition: color 100ms;
-        vertical-align: baseline;
-        user-select: none;
-        -webkit-user-select: none;
-        touch-action: manipulation;
-        margin: 0.1rem;
-    }
-
-    button:hover,
-    button:focus {
-        background-color: var(--${type}-color-state);
-    }
-
-    button:active { background-color: var(--${type}-color);color: var(--${type}-color-state); }
-    
-    @media screen and (max-width: 600px) {
-        button { width: 100%; }
-    }
-    `;
-
-
 pfusch("my-count", { count: 0 }, state => [
     css` p { font-size: 1.5rem; margin-left: 1rem; } `,
     html.p(`Count: ${state.count}`),
@@ -127,12 +86,12 @@ pfusch("my-count", { count: 0 }, state => [
     }, 'Increment'),
 ])
 
-pfusch("my-component", { count: 0, items: [] }, (state) => [
+pfusch("todo-and-counter", { count: 0, items: [] }, (state) => [
     buttonStyle('secondary'),
     html.div({ id: 'my-component' },
         html[`my-list`]({ items: state.items }),
         html[`my-count`]({ count: state.count }),
-        html.button({ click: () => state.count = 0 }, 'Reset everything')
+        html.button({ click: () => (state.count = 0, state.items = [...state.items]) }, 'Reset everything')
     ),
     script(async () => {
         const data = await fetch("https://matthiaskainer.github.io/pfusch/example/data.json")

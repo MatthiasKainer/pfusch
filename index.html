@@ -1,49 +1,143 @@
 <html>
-    <head>
-        <title>Pfusch Test</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            html, body {
-                margin: 0;
-                padding: 0;
-                height: 100%;
-                width: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background-color: #f5f5f5;
-            }
-            /* declare the color variables */
-            :root {
-                --font-family: Roboto;
-                --primary-font-color: white;
-                --primary-background-color: #424242;
-                --primary-color: #EA4C89;
-                --primary-color-state: #F082AC;
-                --secondary-color: #2ea44f;
-                --secondary-color-state: #2ea4AC;
-                --accent-color: #FFC107;
-            }
-            body {
-                font-family: var(--font-family);
-            }
-            div {
-                border-radius: .5rem !important;
-                color: var(--primary-font-color);
-                background-color: var(--primary-background-color);
-                width: 80%;      
-                padding: 3% 6%;   
-                box-shadow: 0 0 2rem rgba(0, 0, 0, 0.8);
-            }
 
-        </style>
-    </head>
-    <body>
-        <div>
-            <hello-world></hello-world>
-            <my-component></my-component>
-        </div>
-        <script src="example/component.js" type="module"></script>
-        <script src="example/hello-world.js" type="module"></script>
-    </body>
+<head>
+    <title>Pfusch Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f5f5f5;
+        }
+
+        /* declare the color variables */
+        :root {
+            --font-family: Roboto;
+            --primary-font-color: white;
+            --primary-background-color: #424242;
+            --primary-color: #EA4C89;
+            --primary-color-state: #F082AC;
+            --secondary-color: #2ea44f;
+            --secondary-color-state: #2ea4AC;
+            --accent-color: #FFC107;
+        }
+
+        body {
+            font-family: var(--font-family);
+        }
+        div {
+            border-radius: .5rem !important;
+            color: var(--primary-font-color);
+            background-color: var(--primary-background-color);
+            width: 80%;
+            padding: 3% 6%;
+            box-shadow: 0 0 2rem rgba(0, 0, 0, 0.8);
+        }
+    </style>
+    <style id="pfusch-style">
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid hsl(0, 0%, 50%);
+            padding: 1rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: hsl(0, 0%, 50%);
+            color: var(--accent-color);
+        }
+
+        tr:nth-child(odd) {
+            background-color: hsl(0, 0%, 95%);
+        }
+
+        tr:nth-child(even) {
+            background-color: hsl(0, 0%, 90%);
+        }
+
+        tbody tr {
+            cursor: pointer;
+        }
+
+        tbody tr:hover {
+            background-color: hsl(0, 0%, 80%);
+        }
+        a-tab-header {
+            display: inline-block;
+            padding: 1rem;
+            cursor: pointer;
+        }
+        a-tab-header:hover {
+            background-color: var(--primary-color-state);
+        }
+        a-tab-header.active {
+            background-color: var(--primary-color);
+        }
+        a-tab-item {
+            display: none;
+        }
+        a-tab-item.active {
+            display: block;
+            border: 1px solid var(--primary-color);
+            padding: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <hello-world></hello-world>
+        <a-tab>
+            <a-tab-header class="active">
+                Todo & Counter
+            </a-tab-header>
+            <a-tab-header>
+                Table (Progressively Enhanced)
+            </a-tab-header>
+            <a-tab-item class="active">
+                <todo-and-counter></todo-and-counter>
+            </a-tab-item>
+            <a-tab-item title="Table (Progressively Enhanced)">
+                <load-script src="example/table.js">Loading the script has a wait of 1 second to highlight the steps</load-script>
+                <table-wrapper url="example/items.json">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Column 1</th>
+                                <th>Column 2</th>
+                                <th>Column 3</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr id="tr-4">
+                                <td id="td-1">prerendered item</td>
+                                <td id="td-2">100</td>
+                                <td id="td-3">yes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </table-wrapper>
+            </a-tab-item>
+        </a-tab>
+
+
+    </div>
+    <script src="example/todo-and-counter.js" type="module"></script>
+    <script src="example/hello-world.js" type="module"></script>
+    <script src="example/load.js" type="module"></script>
+    <script src="example/tab.js" type="module"></script>
+</body>
+
 </html>

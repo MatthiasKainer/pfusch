@@ -1,4 +1,4 @@
-import { pfusch, html, css } from 'https://matthiaskainer.github.io/pfusch/pfusch.min.js';
+import { pfusch, html, css } from '../pfusch.js';
 
 pfusch("hello-world", () => [
     css(`h1, h2 { text-align: center; }`),

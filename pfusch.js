@@ -35,14 +35,39 @@ export const script = (js) => ({
     content: js
 });
 
+const addAttribute = (element) => ([key, value]) => {
+    try {
+        if (typeof value === 'function') {
+            element._re = element._re || [];
+            if (element._re.indexOf(key) < 0) {
+                element.addEventListener(key, value);
+                element._re.push(key);
+            }
+        } else if (typeof value === 'object' && element.state) {
+            element.state[key] = value;
+        } else {
+            element.setAttribute(key, typeof value === 'object' ? JSON.stringify(value) : value);
+        }
+    } catch (e) {
+        console.error(`Cannot add ${key} to ${element.tagName}`, e);
+    }
+}
+
+const setElementId = (element, id) => {
+    element.id = id;
+    addAttribute(element)(['id', id]);
+}
+
 class Element {
     element = null;
+    state = {};
     constructor(name, ...rest) {
         this.element = document.createElement(name);
         if (!rest) return;
+        this.state = rest[0];
         for (let i = 0; i < rest.length; i++) {
             let option = rest[i];
-            if (typeof option === s) {
+            if (!Array.isArray(option) && typeof option !== 'object') {
                 this.element.innerHTML = option;
             }
             else if (option && Array.isArray(option) && option.raw) {
@@ -53,21 +78,8 @@ class Element {
                 this.element.appendChild(option.element);
             }
             else if (option && typeof option === 'object') {
-                Object.entries(option).forEach(([key, value]) => {
-                    try {
-                        if (typeof value === 'function') {
-                            this.element.addEventListener(key, value);
-                        } else {
-                            this.element.setAttribute(key, typeof value === 'object' ? JSON.stringify(value) : value);
-                        }
-                    } catch (e) {
-                        console.error(`Cannot add ${key} to ${name}`, e);
-                    }
-                });
+                Object.entries(option).forEach(addAttribute(this.element));
             }
-        }
-        if (this.element.id === '') {
-            this.element.id = `${name}-${oid(this.element)}`;
         }
     }
 }
@@ -79,20 +91,29 @@ export function pfusch(tagName, initialState, template) {
         template = initialState;
         initialState = {};
     }
+    initialState = { id: '', ...initialState };
     class Pfusch extends HTMLElement {
         fullRerender = true;
         elements = [];
+
         constructor() {
             super();
 
             const stateProxy = (onChange) => new Proxy({ ...initialState }, {
                 set: function (target, key, value) {
+                    const oldValue = target[key];
                     target[key] = value;
-                    onChange();
+                    if (oldValue !== value) {
+                        onChange();
+                    }
                     return true;
+                },
+                get: function (target, key) {
+                    return target[key];
                 }
             });
             this.attachShadow({ mode: 'open' });
+            this.shadowRoot.innerHTML = this.innerHTML;
             this.state = stateProxy(() => this.render());
             Object.keys(initialState).forEach(key => {
                 if (this.hasAttribute(key)) {
@@ -103,7 +124,7 @@ export function pfusch(tagName, initialState, template) {
         }
 
         static get observedAttributes() {
-            return Object.keys(initialState);
+            return ["id", ...Object.entries(initialState).filter(([_, value]) => typeof value !== 'object').map(([key]) => key)];
         }
 
         attributeChangedCallback(name, oldValue, newValue) {
@@ -116,14 +137,46 @@ export function pfusch(tagName, initialState, template) {
         }
 
         render() {
-            const parts = template(this.state, this.triggerEvent.bind(this));
-            const styles = parts.filter(part => part.type === 'style');
+            const parts = template(this.state, this.triggerEvent.bind(this)).filter(part => part);
+            const styles = [
+                ...parts.filter(part => part.type === 'style'),
+                css`${window.document.getElementById("pfusch-style")?.innerText || ''}`
+            ];
             const elementParts = [...parts.filter(part => part instanceof Element)];
             const scripts = parts.filter(part => part.type === 'script');
 
+            // then, for each elementParts that has the attribute as="template", transfer the state
+            for (let i = elementParts.length - 1; i >= 0; i--) {
+                if (elementParts[i].element.getAttribute('as') !== 'template') {
+                    // try to match the elements with the shadow root children by id
+                    const { element } = elementParts[i];
+                    const child = this.shadowRoot.getElementById(element.id);
+                    if (child) {
+                        const parentElement = child.parentNode;
+                        parentElement.replaceChild(element, child);
+                        elementParts.splice(i, 1);
+                    }
+                } else {
+                    const { element, state } = elementParts[i];
+                    const tagName = element.tagName.toLowerCase();
+                    const elements = this.shadowRoot.querySelectorAll(tagName);
+                    [...elements].forEach((e, index) => {
+                        e.index = index;
+                        setElementId(e, e.id || `${tagName}-${index}`);
+                        const elementAttributes = Object.entries(state);
+                        elementAttributes.map(addAttribute(e));
+                        if (state.apply) {
+                            state.apply(e, index);
+                        }
+                    });
+                    elementParts.splice(i, 1);
+                }
+            }
+
             const shadowRootChildren = Array.from(this.shadowRoot.children);
-            elementParts.forEach(part => {
+            elementParts.forEach((part, index) => {
                 const element = part.element;
+                setElementId(element, element.id || `${element.tagName.toLowerCase()}-${index}`);
                 const child = shadowRootChildren.find(child => child.id === element.id);
                 if (!child) {
                     this.shadowRoot.appendChild(element);
@@ -131,16 +184,12 @@ export function pfusch(tagName, initialState, template) {
                     this.shadowRoot.replaceChild(element, child);
                 }
             });
-            shadowRootChildren.forEach(child => {
-                if (!elementParts.find(part => part.element.id === child.id)) {
-                    this.shadowRoot.removeChild(child);
-                }
-            });
+
 
             this.shadowRoot.adoptedStyleSheets = styles.map(style => style.content());
             if (this.fullRerender) {
                 this.fullRerender = false;
-                scripts.forEach(script => script.content(this.shadowRoot));
+                scripts.forEach(script => script.content(this));
             }
         }
     }

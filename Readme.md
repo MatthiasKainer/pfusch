@@ -1,6 +1,6 @@
 # pfusch
 
-![raw size](https://img.shields.io/badge/size-2.2K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.1K-green?label=gzipped%20size)
+![raw size](https://img.shields.io/badge/size-2.9K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.4K-green?label=gzipped%20size)
 
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results. 
@@ -44,7 +44,47 @@ pfusch("hello-world", () => [
 ]);
 ```
 
-4. Go nuts with state and styles and stuff
+4. Use it wisely by progressively enhancing your page
+
+```html
+<table-wrapper url="example/items.json">
+    <table>
+        <thead>
+            <tr>
+                <th>Column 1</th>
+                <th>Column 2</th>
+                <th>Column 3</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+            <tr>
+                <td>prerendered item</td>
+                <td>100</td>
+                <td>yes</td>
+            </tr>
+        </tbody>
+    </table>
+</table-wrapper>
+```
+
+```js
+import { pfusch, script, html } from '../pfusch.js';
+
+pfusch("table-wrapper", { url: "/example/items.json", items: [], selectedId: null }, (state) => [
+    script(async () => {
+        state.items = await fetch(`${state.url}`).then(response => response.json());
+    }),
+    html.tbody({
+        id: "table-body",
+    }, ...state.items.map(item => html.tr(
+        html.td(item.name),
+        html.td(item.price),
+        html.td(item["in stock"] ? "yes" : "no")
+    )))
+]);
+```
+
+5. Go nuts and use it like a SPA with state and styles and stuff
 
 ```js
 import { pfusch, script, css, html } from 'https://matthiaskainer.github.io/pfusch/pfusch.min.js';
@@ -98,6 +138,7 @@ For more information and detailed documentation, please refer to the official `p
 No need. I minify it and get he sizes fo the badges are gather via
 
 ```shell
+rm -f pfusch.min.js;
 npx terser pfusch.js --module --compress --mangle > pfusch.min.js
 ls -lh pfusch.min.js | awk '{print $5}';
 gzip -k -9 pfusch.min.js; ls -lh pfusch.min.js.gz | awk '{print $5}'; rm -f pfusch.min.js.gz
@@ -131,8 +172,7 @@ For instance:
 ```js
 pfusch("hello-world", { who: "world" }, (state) => [
     html.div(
-        html.h2`hello ${who}`,
-        html.h1`pfusch!`
+        html.h2`hello ${who}`
     )
 ]);
 ```
@@ -147,6 +187,45 @@ will show:
 
 > hello me!
 
+Now as lovely as this is, this library is about progressive enhancement, so let's show how this enhances specific parts of the page:
+
+```html
+<body>
+    <div>
+        <hello-world who="me!">
+            <h2>Hello <span id="who">...</span>!</h2>
+        </hello-world>
+    </div>
+    <script type="module">
+        import { pfusch, html, css } from '../../pfusch.js';
+
+        pfusch("hello-world", { who: "..." }, ({ who }) => [
+            css(`h1, h2 { text-align: center; width: 100%; }`),
+            html.span({ id: "who" }, who)
+        ]);
+    </script>
+</body>
+```
+
+Which will also show
+
+> hello me!
+
+But this time you far more control on the layout and the content of the component. And only when the state is changed, the part you want to change, will be changed. All the rest you can statically render and provide to the user at maximum speed. And yes, this also works with server-side rendering. If you prerender this with a headless browser, you will get something like 
+
+```html
+<div>
+    <hello-world who="me!">
+        <template shadowrootmode="open">
+            <h2>Hello <span id="who">me!</span>!</h2>
+        </template>
+        <h2>Hello <span id="who">...</span>!</h2>
+    </hello-world>
+</div>
+```
+
+which, once you add the script and maybe change the attribute to `who="world"`, will update to show `Hello world!`.
+
 If state is updated, either inside the component or via an attribute change, the value will change. State changes are one-directional, so changing the state inside the component will not change the attribute. If you want to bubble up, do it via event. The easiest way for that is the `trigger` function that is passed as second argument after the state: 
 
 ```js
@@ -159,6 +238,24 @@ pfusch("my-triggerydo", { clicked: 0 }, ({clicked}, trigger) => [
     }, `Clicked me ${clicked}`)
 ])
 ```
+
+### Styles are an issue! Whatever I define in the page is not applied to the component!
+
+That's because of the shadow dom. If you want to style the component from the outside, you can either use the `css` function, which will add a style to the component. If you want to just define some base classes that you can use in the component, you can use a `<style>` element with the id `pfusch-style`:
+
+```html
+<style id="pfusch-style">
+    * { color: red; }
+</style>
+```
+
+Every component will have this style applied, so you can define some base styles for your components.
+
+### So I want to build a router component and...
+
+STOP RIGHT THERE! This is not a SPA framework. This is a web component library. You can build a router component, but why would you? Routing is a server-side concern, and if you want to do client-side routing, you misunderstood web. &lt;/old-man-yelling-at-spa>
+
+But really, this libary is thought to embrace what you get for free, namely html, standard css, and server side routing/rendering, and focused on progressive enhancement. If you want to build a SPA, you can do that, but you have to do it with the tools you have, not the tools you want.
 
 ### And whats with all that `html.*` things?
 
