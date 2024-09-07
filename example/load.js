@@ -11,5 +11,5 @@ pfusch("load-script", {load: "", src: ""}, ({load, src}) => [
             script.type = "module";
             document.head.appendChild(script);
         }
-    }, "Load script (this will only work once)")
+    }, "Load web component (this will only work once)")
 ])

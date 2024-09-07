@@ -1,38 +1,24 @@
-import { pfusch, script, html } from "../pfusch.js";
+import { pfusch, html } from "../pfusch.js";
 
-pfusch("a-tab-item", () => [
-    script((element) => {
-        
-    })
-])
-
-pfusch("a-tab-header", { click: (e) => {} }, () => [])
+const setTabActivityState = (state) => (element, index) => {
+    if (state.activeIndex === index) {
+        element.classList.add("active");
+    } else {
+        element.classList.remove("active");
+    }
+}
 
 pfusch("a-tab", { activeIndex: 0 }, state => [
     html[`a-tab-header`]({
-        as: "template",
-        apply: (element, index) => {
-            if (state.activeIndex === index) {
-                element.classList.add("active");
-            } else {
-                element.classList.remove("active");
-            }
-        },
+        as: "interactive",
+        apply: setTabActivityState(state),
         click: (e) => {
-            if (e.target.tagName !== "A-TAB-HEADER") 
-                return;
-            console.log("clicked", e.target);
             state.activeIndex = e.target.index;
+            console.log(state.activeIndex);
         },
     }),
     html[`a-tab-item`]({
-        as: "template",
-        apply: (element, index) => {
-            if (state.activeIndex === index) {
-                element.classList.add("active");
-            } else {
-                element.classList.remove("active");
-            }
-        }
+        as: "interactive",
+        apply: setTabActivityState(state)
     })
 ])
