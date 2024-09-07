@@ -1,6 +1,6 @@
 # pfusch
 
-![raw size](https://img.shields.io/badge/size-2.9K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.4K-green?label=gzipped%20size)
+![raw size](https://img.shields.io/badge/size-3.0K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.4K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -237,7 +237,7 @@ But this time you far more control on the layout and the content of the componen
 
 ```html
 <div>
-  <hello-world who="me!">
+  <hello-world who="me!" as="lazy">
     <template shadowrootmode="open">
       <h2>Hello <span id="who">me!</span>!</h2>
     </template>
@@ -246,7 +246,7 @@ But this time you far more control on the layout and the content of the componen
 </div>
 ```
 
-which, once you add the script and maybe change the attribute to `who="world"`, will update to show `Hello world!`.
+which, once you add the script and maybe change the attribute to `who="world"`, will update to show `Hello world!`. The `as="lazy"` attribute tells the component to only update the component if the initial state changes (in this case, `me!`), avoiding any flickering.
 
 If state is updated, either inside the component or via an attribute change, the value will change. State changes are one-directional, so changing the state inside the component will not change the attribute. If you want to bubble up, do it via event. The easiest way for that is the `trigger` function that is passed as second argument after the state:
 

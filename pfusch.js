@@ -9,6 +9,8 @@ function json(jsonString) {
     }
 }
 
+const jstr = (obj) => JSON.stringify(obj);
+
 const str = (string, ...tags) =>
     (typeof string === s) ? string : string.reduce((acc, part, i) => {
         return acc + part + (tags[i] || '');
@@ -41,7 +43,7 @@ const addAttribute = (element) => ([key, value]) => {
     } else if (typeof value === o && element.state) {
         element.state[key] = value;
     } else {
-        element.setAttribute(key, typeof value === o ? JSON.stringify(value) : value);
+        element.setAttribute(key, typeof value === o ? jstr(value) : value);
     }
 }
 
@@ -87,11 +89,12 @@ export function pfusch(tagName, initialState, template) {
     class Pfusch extends HTMLElement {
         fullRerender = true;
         elements = [];
+        is = {...initialState};
 
         constructor() {
             super();
 
-            const stateProxy = (onChange) => new Proxy({ ...initialState }, {
+            const stateProxy = (onChange) => new Proxy({ ...this.is }, {
                 set: function (target, key, value) {
                     if (target[key] !== value) {
                         target[key] = value;
@@ -104,9 +107,10 @@ export function pfusch(tagName, initialState, template) {
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.innerHTML = this.innerHTML;
             this.state = stateProxy(() => this.render());
-            Object.keys(initialState).forEach(key => {
+            Object.keys(this.is).forEach(key => {
                 if (this.hasAttribute(key)) {
-                    this.state[key] = json(this.getAttribute(key));
+                    this.is[key] = json(this.getAttribute(key));
+                    this.state[key] = this.is[key];
                 }
             });
             this.render();
@@ -133,6 +137,16 @@ export function pfusch(tagName, initialState, template) {
             ];
             const elementParts = parts.filter(part => part instanceof Element);
             const scripts = parts.filter(part => part.type === 'script');
+            this.shadowRoot.adoptedStyleSheets = styles.map(style => style.content());            
+            if (this.fullRerender) {
+                this.fullRerender = false;
+                scripts.forEach(script => script.content(this));
+            }
+
+            // if state is initial state, and attibute `as` is set to `lazy`, early exit
+            if (this.is["as"] === 'lazy' && jstr(this.state) === jstr(this.is)) {
+                return;
+            }
 
             const processElement = (element, state) => {
                 const tagName = element.tagName.toLowerCase();
@@ -171,11 +185,6 @@ export function pfusch(tagName, initialState, template) {
                 }
             });
 
-            this.shadowRoot.adoptedStyleSheets = styles.map(style => style.content());
-            if (this.fullRerender) {
-                this.fullRerender = false;
-                scripts.forEach(script => script.content(this));
-            }
         }
     }
 

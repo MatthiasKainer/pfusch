@@ -109,11 +109,31 @@
             <a-tab-item class="active">
                 <todo-and-counter></todo-and-counter>
             </a-tab-item>
-            <a-tab-item title="Table (Progressively Enhanced)">
+            <a-tab-item title="Table (Hydrated)">
                 <load-script load="load-table" src="example/table.js">
                     <button id="load-table"></button>
                     <i>Loading the script has a wait of 1 second to highlight the steps</i>
                 </load-script>
+                <h3>Lazy Loaded (will change only once fully loaded)</h3>
+                <table-wrapper url="example/items.json" as="lazy">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>In Stock?</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr id="tr-4">
+                                <td id="td-1">prerendered item</td>
+                                <td id="td-2">100</td>
+                                <td id="td-3">yes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </table-wrapper>
+                <h3>Immediatly Loaded</h3>
                 <table-wrapper url="example/items.json">
                     <table>
                         <thead>

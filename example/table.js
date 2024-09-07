@@ -1,6 +1,6 @@
 import { pfusch, script, html } from '../pfusch.js';
 
-pfusch("table-wrapper", { url: "/example/items.json", items: [], selectedId: null }, (state) => [
+pfusch("table-wrapper", { url: "example/items.json", as: "table-wrapper", items: [], selectedId: null }, (state) => [
     script(async () => {
         const response = await fetch(`${state.url}`);
         setTimeout(() => {
