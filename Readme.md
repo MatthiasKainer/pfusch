@@ -1,6 +1,6 @@
 # pfusch
 
-![raw size](https://img.shields.io/badge/size-3.0K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.4K-green?label=gzipped%20size)
+![raw size](https://img.shields.io/badge/size-3.2K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.5K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -299,8 +299,13 @@ That's because of the shadow dom. If you want to style the component from the ou
 </style>
 ```
 
-Every component will have this style applied, so you can define some base styles for your components.
+Every component will have this style applied, so you can define some base styles for your components. If you must do this for stylesheet links, then add the data-pfusch attribute to the link tag:
 
+```html
+<link rel="stylesheet" href="styles.css" data-pfusch>
+```
+
+This will add the stylesheet to the shadow dom of the component, so you can pass classes to the inside.
 
 ### What's that as=interactive thing?
 
@@ -373,6 +378,30 @@ pfusch("a-tab", { activeIndex: 0 }, state => [
 ```
 
 Now, as soon as the script is loaded, the tabs will be interactive and you can switch between them. The `apply` function is called for every element that has the `as=interactive` attribute every time the state changes, allowing you to react on state changes. It gives you the element and the index of the element in the array of elements of this type that belongs to the same parent.
+
+### Okay, but I want to do something when state changes
+
+Ah, you really want all the fun of React, but without the React. You can do that by adding a `subscribe` function to the state object. This function will be called every time the state for a key changes, and you can do whatever you want with it. For instance, you can add a `subscribe` function to the component that loads a list:
+
+```js
+pfusch("item-list", { source: "", items: [] }, (state) => [
+    script(async () => {
+        state.subscribe("source", async () => {
+            if (state.source === "") return ``;
+            state.items = await fetch(`/data/${state.source}.json`).then(r => r.json())
+        })
+    }),
+    html.ul(...state.items.map(item => html.li(item.name)))
+])
+```
+
+Now if someone use the component like this:
+
+```html
+<item-list source="items"></item-list>
+```
+
+and then changes the source attribute, the list will be updated with the new items. This is all thanks to the javascript `Proxy` object, which is also the reason why this library is very slow and not supported in IE11.
 
 
 ### So I want to build a router component and...

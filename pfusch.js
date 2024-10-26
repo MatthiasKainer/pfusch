@@ -1,4 +1,3 @@
-
 const s = 'string';
 const o = 'object';
 function json(jsonString) {
@@ -89,21 +88,30 @@ export function pfusch(tagName, initialState, template) {
     class Pfusch extends HTMLElement {
         fullRerender = true;
         elements = [];
-        is = {...initialState};
+        is = { ...initialState };
 
         constructor() {
             super();
 
-            const stateProxy = (onChange) => new Proxy({ ...this.is }, {
-                set: function (target, key, value) {
-                    if (target[key] !== value) {
-                        target[key] = value;
-                        onChange();
-                    }
-                    return true;
-                },
-                get: (target, key) => target[key]
-            });
+            const stateProxy = (onChange) => {
+                const subscribers = {};
+                const proxy = new Proxy({ ...this.is }, {
+                    set: function (target, key, value) {
+                        if (target[key] !== value) {
+                            target[key] = value;
+                            if (key != "subscribe") onChange();
+                            (subscribers[key] || []).forEach(callback => callback(value));
+                        }
+                        return true;
+                    },
+                    get: (target, key) => target[key]
+                })
+                proxy.subscribe = function(prop, callback) {
+                    subscribers[prop] = subscribers[prop] || [];
+                    subscribers[prop].push(callback);
+                };
+                return proxy;
+            };
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.innerHTML = this.innerHTML;
             this.state = stateProxy(() => this.render());
@@ -137,10 +145,11 @@ export function pfusch(tagName, initialState, template) {
             ];
             const elementParts = parts.filter(part => part instanceof Element);
             const scripts = parts.filter(part => part.type === 'script');
-            this.shadowRoot.adoptedStyleSheets = styles.map(style => style.content());            
+            this.shadowRoot.adoptedStyleSheets = styles.map(style => style.content());
             if (this.fullRerender) {
                 this.fullRerender = false;
                 scripts.forEach(script => script.content(this));
+                [...document.querySelectorAll("link[data-pfusch]")].map(node => this.shadowRoot.append(node.cloneNode(true)));
             }
 
             // if state is initial state, and attibute `as` is set to `lazy`, early exit
