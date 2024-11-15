@@ -111,7 +111,7 @@ export function pfusch(tagName, initialState, template) {
                 };
                 return proxy;
             };
-            this.attachShadow({ mode: 'open' });
+            this.attachShadow({ mode: 'open', serializable: true });
             this.shadowRoot.innerHTML = this.innerHTML;
             this.state = stateProxy(() => this.render());
             Object.keys(this.is).forEach(key => {
@@ -153,6 +153,12 @@ export function pfusch(tagName, initialState, template) {
             if (this.fullRerender) {
                 this.fullRerender = false;
                 scripts.forEach(script => script.content(this));
+                // if we have a queryString for ssr=true, we are in prerender mode
+                if (window.location.search.includes('ssr=true')) {
+                    const manualStyles = document.createElement("style");
+                    manualStyles.innerText = styles.map(style => [...style.content().cssRules].map(rule => rule.cssText).join(' ')).join('');
+                    this.shadowRoot.append(manualStyles);
+                }
                 [...document.querySelectorAll("link[data-pfusch]")].map(node => this.shadowRoot.append(node.cloneNode(true)));
             }
 
