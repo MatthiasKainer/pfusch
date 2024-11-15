@@ -46,10 +46,6 @@ const addAttribute = (element) => ([key, value]) => {
     }
 }
 
-const setElementId = (element, id) => {
-    element.id = id;
-    addAttribute(element)(['id', id]);
-}
 
 class Element {
     element = null;
@@ -89,17 +85,20 @@ export function pfusch(tagName, initialState, template) {
         fullRerender = true;
         elements = [];
         is = { ...initialState };
+        static formAssociated = true;
+        #internals;
 
         constructor() {
             super();
-
+            this.#internals = this.attachInternals();
+            const internals = this.#internals;
             const stateProxy = (onChange) => {
                 const subscribers = {};
                 const proxy = new Proxy({ ...this.is }, {
                     set: function (target, key, value) {
                         if (target[key] !== value) {
                             target[key] = value;
-                            if (key != "subscribe") onChange();
+                            if (key != "subscribe") (onChange(), internals.setFormValue(jstr(target)));
                             (subscribers[key] || []).forEach(callback => callback(value));
                         }
                         return true;
@@ -126,6 +125,11 @@ export function pfusch(tagName, initialState, template) {
 
         static get observedAttributes() {
             return ["id", ...Object.entries(initialState).filter(([_, value]) => typeof value !== o).map(([key]) => key)];
+        }
+
+        setElementId(element, id) {
+            element.id = id;
+            addAttribute(element)(['id', id]);
         }
 
         attributeChangedCallback(name, oldValue, newValue) {
@@ -162,7 +166,7 @@ export function pfusch(tagName, initialState, template) {
                 const elements = this.shadowRoot.querySelectorAll(tagName);
                 elements.forEach((e, index) => {
                     e.index = index;
-                    setElementId(e, e.id || `${tagName}-${index}`);
+                    this.setElementId(e, e.id || `${this.id}.${tagName}-${index}`);
                     Object.entries(state).forEach(addAttribute(e));
                     state.apply?.(e, index);
                 });
@@ -175,6 +179,8 @@ export function pfusch(tagName, initialState, template) {
                     if (child) {
                         child.parentNode.replaceChild(element, child);
                         elementParts.splice(elementParts.length - 1 - i, 1);
+                    } else if (!element.id) {
+                        this.setElementId(element, `${this.id}.${element.tagName.toLowerCase()}-${i}`);
                     }
                 } else {
                     processElement(element, state);
@@ -185,7 +191,7 @@ export function pfusch(tagName, initialState, template) {
             const shadowRootChildren = Array.from(this.shadowRoot.children);
             elementParts.forEach((part, index) => {
                 const element = part.element;
-                setElementId(element, element.id || `${element.tagName.toLowerCase()}-${index}`);
+                this.setElementId(element, element.id || `${element.tagName.toLowerCase()}-${index}`);
                 const child = shadowRootChildren.find(child => child.id === element.id);
                 if (!child) {
                     this.shadowRoot.appendChild(element);
