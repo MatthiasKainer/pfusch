@@ -138,7 +138,11 @@ export function pfusch(tagName, initialState, template) {
         }
 
         triggerEvent(eventName, detail) {
-            this.dispatchEvent(new CustomEvent(eventName, { detail }));
+            this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
+            window.postMessage({ eventName: `${tagName}.${eventName}`, detail: {
+                sourceId: this.is.id,
+                data: detail
+            } }, "*");
         }
 
         render() {
