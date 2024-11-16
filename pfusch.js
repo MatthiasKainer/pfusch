@@ -80,7 +80,7 @@ export function pfusch(tagName, initialState, template) {
         template = initialState;
         initialState = {};
     }
-    initialState = { id: '', ...initialState };
+    initialState = { ...initialState };
     class Pfusch extends HTMLElement {
         fullRerender = true;
         elements = [];
@@ -112,14 +112,17 @@ export function pfusch(tagName, initialState, template) {
                 return proxy;
             };
             this.attachShadow({ mode: 'open', serializable: true });
-            this.shadowRoot.innerHTML = this.innerHTML;
             this.state = stateProxy(() => this.render());
+            if (!this.is.id || this.is.id === '') {
+                this.is.id = `${tagName}-${Math.random().toString(36).substring(7)}`;
+            }
             Object.keys(this.is).forEach(key => {
                 if (this.hasAttribute(key)) {
                     this.is[key] = json(this.getAttribute(key));
                     this.state[key] = this.is[key];
                 }
             });
+            if (this.is.as !== 'slotted') this.shadowRoot.innerHTML = this.innerHTML;
             this.render();
         }
 
@@ -141,7 +144,7 @@ export function pfusch(tagName, initialState, template) {
             this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
             window.postMessage({ eventName: `${tagName}.${eventName}`, detail: {
                 sourceId: this.is.id,
-                data: detail
+                data: jstr(detail)
             } }, "*");
         }
 
@@ -185,12 +188,14 @@ export function pfusch(tagName, initialState, template) {
             elementParts.slice().reverse().forEach((part, i) => {
                 const { element, state } = part;
                 if (element.getAttribute('as') !== 'interactive') {
+                    
                     const child = this.shadowRoot.getElementById(element.id);
                     if (child) {
                         child.parentNode.replaceChild(element, child);
                         elementParts.splice(elementParts.length - 1 - i, 1);
-                    } else if (!element.id) {
-                        this.setElementId(element, `${this.id}.${element.tagName.toLowerCase()}-${i}`);
+                    } 
+                    if (!element.id || element.id === '') {
+                        this.setElementId(element, `${element.tagName.toLowerCase()}-${i}`);
                     }
                 } else {
                     processElement(element, state);
@@ -201,7 +206,7 @@ export function pfusch(tagName, initialState, template) {
             const shadowRootChildren = Array.from(this.shadowRoot.children);
             elementParts.forEach((part, index) => {
                 const element = part.element;
-                this.setElementId(element, element.id || `${element.tagName.toLowerCase()}-${index}`);
+                //this.setElementId(element, element.id || `${this.id}.${element.tagName.toLowerCase()}-${index}`);
                 const child = shadowRootChildren.find(child => child.id === element.id);
                 if (!child) {
                     this.shadowRoot.appendChild(element);

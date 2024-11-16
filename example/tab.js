@@ -1,4 +1,4 @@
-import { pfusch, html } from "../pfusch.js";
+import { pfusch, html, script } from "../pfusch.js";
 
 const setTabActivityState = (state) => (element, index) => {
     if (state.activeIndex === index) {
@@ -14,11 +14,18 @@ pfusch("a-tab", { activeIndex: 0 }, state => [
         apply: setTabActivityState(state),
         click: (e) => {
             state.activeIndex = e.target.index;
-            console.log(state.activeIndex);
         },
     }),
     html[`a-tab-item`]({
         as: "interactive",
         apply: setTabActivityState(state)
+    }),
+    script(() => {
+        // if we have a query parameter a-tab-index, set the activeIndex to that value
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabIndex = urlParams.get('a-tab-index');
+        if (tabIndex) {
+            state.activeIndex = parseInt(tabIndex);
+        }  
     })
 ])

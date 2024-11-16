@@ -93,7 +93,19 @@
             border: 1px solid var(--primary-color);
             padding: 1rem;
         }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
     </style>
+    <script src="example/todo-and-counter.js" type="module" async></script>
+    <script src="example/hello-world.js" type="module" async></script>
+    <script src="example/load.js" type="module"  async></script>
+    <script src="example/tab.js" type="module" async></script>
+    <script src="example/star-rating.js" type="module" async></script>
+    <script src="example/todo.js" type="module" async></script>
+    <script src="example/show-if.js" type="module" async></script>
 </head>
 
 <body>
@@ -105,6 +117,9 @@
             </a-tab-header>
             <a-tab-header>
                 Table (Progressively Enhanced)
+            </a-tab-header>
+            <a-tab-header>
+                Form Based 5 Star Rating
             </a-tab-header>
             <a-tab-item class="active">
                 <todo-and-counter></todo-and-counter>
@@ -153,12 +168,28 @@
                     </table>
                 </table-wrapper>
             </a-tab-item>
+            <a-tab-item>
+                <h1>Star Rating</h1>
+                <show-if query="submitted">
+                    <h1>Thank you for your feedback!</h1>
+                    <p>You voted:</p>
+                    <result-rating></result-rating>
+                    <result-comment></result-comment>
+                    <a href="?a-tab-index=2">Go back</a>
+                </show-if>
+                <show-if query="!submitted">
+                    <form method="get" action="">
+                        <input type="hidden" name="a-tab-index" value="2" aria-label="Tab to open on form submit">
+                        <input type="hidden" name="submitted" value="true" aria-label="Tracking if the form was submitted, as we don't have a backend">
+                        <star-rating id="rating" name="rating"></star-rating>
+                        <label for="comment">Comment</label>
+                        <textarea name="comment" id="comment" cols="30" rows="10" placeholder="Say what you think, but in friendly" aria-label="Comment"></textarea>
+                        <button type="submit">Submit</button>
+                    </form>
+                </show-if>
+            </a-tab-item>
         </a-tab>
     </div>
-    <script src="example/todo-and-counter.js" type="module"></script>
-    <script src="example/hello-world.js" type="module"></script>
-    <script src="example/load.js" type="module"></script>
-    <script src="example/tab.js" type="module"></script>
 </body>
 
 </html>
