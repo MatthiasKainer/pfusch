@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -20,6 +21,7 @@
         :root {
             --font-family: Roboto;
             --primary-font-color: white;
+            --secondary-font-color: #424242;
             --primary-background-color: #424242;
             --primary-color: #EA4C89;
             --primary-color-state: #F082AC;
@@ -69,26 +71,38 @@
 
         tbody tr {
             cursor: pointer;
+            color: var(--secondary-font-color);
         }
 
         tbody tr:hover {
             background-color: hsl(0, 0%, 80%);
+            color: var(--primary-font-color);
         }
-        a-tab-header {
-            display: inline-block;
-            padding: 1rem;
+        [role="tablist"] {
+            display: flex;
+            padding: 0;
+            margin: 0;
+        }
+        [role="tablist"] li {
+            list-style: none;
+            margin: 1rem 0;
+        }
+        a-tab-header, a[role="tab"] {
             cursor: pointer;
+            text-decoration: none;
+            color: var(--primary-font-color);
+            padding: 1rem;
         }
-        a-tab-header:hover {
+        a-tab-header:hover, [role="tab"]:hover {
             background-color: var(--primary-color-state);
         }
-        a-tab-header.active {
+        a-tab-header.active, [role="tab"][aria-selected="true"] {
             background-color: var(--primary-color);
         }
-        a-tab-item {
+        a-tab-item, [role="tabpanel"][hidden] {
             display: none;
         }
-        a-tab-item.active {
+        a-tab-item.active, [role="tabpanel"], [role="tabpanel"]:active {
             display: block;
             border: 1px solid var(--primary-color);
             padding: 1rem;
@@ -111,24 +125,12 @@
 <body>
     <div>
         <hello-world></hello-world>
-        <a-tab>
-            <a-tab-header class="active">
-                Todo & Counter
-            </a-tab-header>
-            <a-tab-header>
-                Table (Progressively Enhanced)
-            </a-tab-header>
-            <a-tab-header>
-                Form Based 5 Star Rating
-            </a-tab-header>
-            <a-tab-item class="active">
+        <tab-panel>
+            <tab-item header="Todo & Counter">
                 <todo-and-counter></todo-and-counter>
-            </a-tab-item>
-            <a-tab-item title="Table (Hydrated)">
-                <load-script load="load-table" src="example/table.js">
-                    <button id="load-table"></button>
-                    <i>Loading the script has a wait of 1 second to highlight the steps</i>
-                </load-script>
+            </tab-item>
+            <tab-item header="Lazy Loading">
+                <load-script load="load-table" src="example/table.js"></load-script>
                 <h3>Lazy Loaded (will change only once fully loaded)</h3>
                 <table-wrapper url="example/items.json" as="lazy">
                     <table>
@@ -167,8 +169,8 @@
                         </tbody>
                     </table>
                 </table-wrapper>
-            </a-tab-item>
-            <a-tab-item>
+            </tab-item>
+            <tab-item header="Forms">
                 <h1>Star Rating</h1>
                 <show-if query="submitted">
                     <h1>Thank you for your feedback!</h1>
@@ -187,8 +189,8 @@
                         <button type="submit">Submit</button>
                     </form>
                 </show-if>
-            </a-tab-item>
-        </a-tab>
+            </tab-item>
+        </tab-panel>
     </div>
 </body>
 

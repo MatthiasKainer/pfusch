@@ -19,9 +19,9 @@ export function css(style, ...tags) {
     return {
         type: 'style',
         content: () => {
-            var adoptedStyleSheets = new CSSStyleSheet();
-            adoptedStyleSheets.replaceSync(str(style, ...tags));
-            return adoptedStyleSheets;
+            const sheet = new CSSStyleSheet();
+            sheet.replaceSync(str(style, ...tags));
+            return sheet;
         }
     };
 }
@@ -46,30 +46,38 @@ const addAttribute = (element) => ([key, value]) => {
     }
 }
 
+export const toElem = (node) => {
+    if (node instanceof Element) return node;
+    if (node instanceof HTMLElement) {
+        return html[node.tagName](
+            [...node.attributes].reduce((acc, val) => { acc[val.name] = val.value; return acc; }, {}), 
+            ...[...node.childNodes].map(toElem));
+    }
+    return node.nodeType === 3 ? node.textContent : node;
+}
 
 class Element {
     element = null;
     state = {};
+    add(option, ah = () => []) {
+        if (!Array.isArray(option) && typeof option !== o) {
+            this.element.appendChild(document.createTextNode(option));
+        } else if (option?.raw) {
+            this.element.innerHTML = str(option, ...ah());
+        } else if (option instanceof HTMLElement) {
+            this.element.appendChild(option);
+        } else if (option instanceof Element) {
+            this.element.appendChild(option.element);
+        } else if (option && typeof option === o) {
+            Object.entries(option).forEach(addAttribute(this.element));
+        }
+        return this;
+    }
     constructor(name, ...rest) {
         this.element = document.createElement(name);
-        if (!rest) return;
+        if (!rest.length) return;
         this.state = rest[0];
-        for (let i = 0; i < rest.length; i++) {
-            let option = rest[i];
-            if (!Array.isArray(option) && typeof option !== o) {
-                this.element.innerHTML = option;
-            }
-            else if (option && Array.isArray(option) && option.raw) {
-                this.element.innerHTML = str(option, ...rest.slice(i + 1));
-                break;
-            }
-            else if (option && option instanceof Element) {
-                this.element.appendChild(option.element);
-            }
-            else if (option && typeof option === o) {
-                Object.entries(option).forEach(addAttribute(this.element));
-            }
-        }
+        rest.forEach((item, i) => this.add(item, () => rest.slice(i + 1)));
     }
 }
 
@@ -83,7 +91,6 @@ export function pfusch(tagName, initialState, template) {
     initialState = { ...initialState };
     class Pfusch extends HTMLElement {
         fullRerender = true;
-        elements = [];
         is = { ...initialState };
         static formAssociated = true;
         #internals;
@@ -95,19 +102,18 @@ export function pfusch(tagName, initialState, template) {
             const stateProxy = (onChange) => {
                 const subscribers = {};
                 const proxy = new Proxy({ ...this.is }, {
-                    set: function (target, key, value) {
+                    set(target, key, value) {
                         if (target[key] !== value) {
                             target[key] = value;
-                            if (key != "subscribe") (onChange(), internals.setFormValue(jstr(target)));
+                            if (key !== "subscribe") (onChange(), internals.setFormValue(jstr(target)));
                             (subscribers[key] || []).forEach(callback => callback(value));
                         }
                         return true;
                     },
                     get: (target, key) => target[key]
-                })
-                proxy.subscribe = function(prop, callback) {
-                    subscribers[prop] = subscribers[prop] || [];
-                    subscribers[prop].push(callback);
+                });
+                proxy.subscribe = (prop, callback) => {
+                    (subscribers[prop] ??= []).push(callback);
                 };
                 return proxy;
             };
@@ -117,8 +123,9 @@ export function pfusch(tagName, initialState, template) {
                 this.is.id = `${tagName}-${Math.random().toString(36).substring(7)}`;
             }
             Object.keys(this.is).forEach(key => {
-                if (this.hasAttribute(key)) {
-                    this.is[key] = json(this.getAttribute(key));
+                const value = this.getAttribute(key) || this.getAttribute(key.toLowerCase());
+                if (value !== null) {
+                    this.is[key] = json(value);
                     this.state[key] = this.is[key];
                 }
             });
@@ -127,7 +134,8 @@ export function pfusch(tagName, initialState, template) {
         }
 
         static get observedAttributes() {
-            return ["id", ...Object.entries(initialState).filter(([_, value]) => typeof value !== o).map(([key]) => key)];
+            const keys = Object.entries(initialState).filter(([_, value]) => typeof value !== o).map(([key]) => key);
+            return ["id", ...keys.flatMap(key => [key, key.toLowerCase()])];
         }
 
         setElementId(element, id) {
@@ -137,7 +145,8 @@ export function pfusch(tagName, initialState, template) {
 
         attributeChangedCallback(name, oldValue, newValue) {
             if (oldValue === newValue) return;
-            this.state[name] = json(newValue);
+            const key = Object.keys(this.is).find(k => k === name || k.toLowerCase() === name);
+            if (key) this.state[key] = json(newValue);
         }
 
         triggerEvent(eventName, detail) {
@@ -149,35 +158,33 @@ export function pfusch(tagName, initialState, template) {
         }
 
         render() {
-            const parts = template(this.state, this.triggerEvent.bind(this)).filter(Boolean);
+            const parts = template(this.state, this.triggerEvent.bind(this), [...this.childNodes]).filter(Boolean);
             const styles = [
                 ...parts.filter(part => part.type === 'style'),
-                css`${window.document.getElementById("pfusch-style")?.innerText || ''}`
+                css`${document.getElementById("pfusch-style")?.innerText || ''}`
             ];
             const elementParts = parts.filter(part => part instanceof Element);
             const scripts = parts.filter(part => part.type === 'script');
             this.shadowRoot.adoptedStyleSheets = styles.map(style => style.content());
+            
             if (this.fullRerender) {
                 this.fullRerender = false;
                 scripts.forEach(script => script.content(this));
-                // if we have a queryString for ssr=true, we are in prerender mode
-                if (window.location.search.includes('ssr=true')) {
+                if (location.search.includes('ssr=true')) {
                     const manualStyles = document.createElement("style");
                     manualStyles.innerText = styles.map(style => [...style.content().cssRules].map(rule => rule.cssText).join(' ')).join('');
                     this.shadowRoot.append(manualStyles);
                 }
-                [...document.querySelectorAll("link[data-pfusch]")].map(node => this.shadowRoot.append(node.cloneNode(true)));
+                [...document.querySelectorAll("link[data-pfusch]")].forEach(node => 
+                    this.shadowRoot.append(node.cloneNode(true))
+                );
             }
 
-            // if state is initial state, and attibute `as` is set to `lazy`, early exit
-            if (this.is["as"] === 'lazy' && jstr(this.state) === jstr(this.is)) {
-                return;
-            }
+            if (this.is.as === 'lazy' && jstr(this.state) === jstr(this.is)) return;
 
             const processElement = (element, state) => {
                 const tagName = element.tagName.toLowerCase();
-                const elements = this.shadowRoot.querySelectorAll(tagName);
-                elements.forEach((e, index) => {
+                this.shadowRoot.querySelectorAll(tagName).forEach((e, index) => {
                     e.index = index;
                     this.setElementId(e, e.id || `${this.id}.${tagName}-${index}`);
                     Object.entries(state).forEach(addAttribute(e));
@@ -188,13 +195,12 @@ export function pfusch(tagName, initialState, template) {
             elementParts.slice().reverse().forEach((part, i) => {
                 const { element, state } = part;
                 if (element.getAttribute('as') !== 'interactive') {
-                    
                     const child = this.shadowRoot.getElementById(element.id);
                     if (child) {
                         child.parentNode.replaceChild(element, child);
                         elementParts.splice(elementParts.length - 1 - i, 1);
                     } 
-                    if (!element.id || element.id === '') {
+                    if (!element.id) {
                         this.setElementId(element, `${element.tagName.toLowerCase()}-${i}`);
                     }
                 } else {
@@ -204,9 +210,8 @@ export function pfusch(tagName, initialState, template) {
             });
 
             const shadowRootChildren = Array.from(this.shadowRoot.children);
-            elementParts.forEach((part, index) => {
+            elementParts.forEach((part) => {
                 const element = part.element;
-                //this.setElementId(element, element.id || `${this.id}.${element.tagName.toLowerCase()}-${index}`);
                 const child = shadowRootChildren.find(child => child.id === element.id);
                 if (!child) {
                     this.shadowRoot.appendChild(element);
@@ -214,7 +219,6 @@ export function pfusch(tagName, initialState, template) {
                     this.shadowRoot.replaceChild(element, child);
                 }
             });
-
         }
     }
 

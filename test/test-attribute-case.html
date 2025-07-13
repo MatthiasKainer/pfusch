@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Attribute Case Handling</title>
+</head>
+<body>
+    <h1>Testing Attribute Case Handling</h1>
+    
+    <!-- Test with camelCase attributes -->
+    <test-component 
+        contentText="Hello World" 
+        maxLength="100" 
+        isVisible="true">
+    </test-component>
+    
+    <!-- Test with lowercase attributes (how HTML actually stores them) -->
+    <test-component 
+        contenttext="Hello Lowercase" 
+        maxlength="50" 
+        isvisible="false">
+    </test-component>
+
+    <script type="module">
+        import { pfusch, html, css } from "../pfusch.js";
+
+        pfusch("test-component", {
+            contentText: "default content",
+            maxLength: 10,
+            isVisible: true
+        }, (state) => [
+            css`
+                :host {
+                    display: block;
+                    padding: 20px;
+                    margin: 10px;
+                    border: 1px solid #ccc;
+                    border-radius: 5px;
+                }
+                .content {
+                    font-weight: bold;
+                }
+                .meta {
+                    font-size: 12px;
+                    color: #666;
+                    margin-top: 10px;
+                }
+            `,
+            html.div(
+                { class: "content" },
+                `Content: ${state.contentText}`
+            ),
+            html.div(
+                { class: "meta" },
+                `Max Length: ${state.maxLength}, Visible: ${state.isVisible}`
+            ),
+            html.button({
+                click: () => {
+                    state.contenttext = "Updated: " + new Date().toLocaleTimeString();
+                    state.maxlength = Math.floor(Math.random() * 100);
+                    state.isvisible = !state.isvisible;
+                }
+            }, "Update State lowercase"),
+            html.button({
+                click: () => {
+                    state.contentText = "Updated: " + new Date().toLocaleTimeString();
+                    state.maxLength = Math.floor(Math.random() * 100);
+                    state.isVisible = !state.isVisible;
+                }
+            }, "Update State camelcase")
+        ]);
+
+        // Test attribute changes via JavaScript
+        setTimeout(() => {
+            const firstComponent = document.querySelector("test-component");
+            console.log("Changing contenttext attribute to lowercase...");
+            firstComponent.setAttribute("contenttext", "Changed via setAttribute (lowercase)");
+            firstComponent.setAttribute("maxlength", "999");
+        }, 2000);
+
+        setTimeout(() => {
+            const secondComponent = document.querySelectorAll("test-component")[1];
+            console.log("Changing contentText attribute to camelCase...");
+            secondComponent.setAttribute("contentText", "Changed via setAttribute (camelCase)");
+            secondComponent.setAttribute("maxLength", "777");
+        }, 4000);
+    </script>
+</body>
+</html>

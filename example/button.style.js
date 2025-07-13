@@ -35,7 +35,5 @@ export const buttonStyle = (type) => css`
 
     button:active { background-color: var(--${type}-color);color: var(--${type}-color-state); }
     
-    @media screen and (max-width: 600px) {
-        button { width: 100%; }
-    }
+    @media screen and (max-width: 600px) {button { width: 100%; }}
     `;

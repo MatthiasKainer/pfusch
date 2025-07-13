@@ -1,0 +1,18 @@
+{
+  "name": "@pfusch/test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run host && sleep 10 &&  playwright test && npm run host:end",
+    "host": "npx serve -l 3030 -s .. &",
+    "host:end": "kill -9 $(lsof -t -i:3030)"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/node": "^22.9.0"
+  }
+}

@@ -1,10 +1,12 @@
 # pfusch
 
-![raw size](https://img.shields.io/badge/size-3.8K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.8K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-227-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-4.1K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.9K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
 Pfusch is a super-minimal web component library, that you can (and should) use without any bundler, minifier, builder, transpiler or thingamajig.
+
+I use it for quick prototyping, for quick and dirty projects, and for fun. It is not meant to be used in production, but it is a great way to get started with web components without the hassle of setting up a full-blown framework.
 
 ## Using `pfusch`
 
@@ -490,3 +492,243 @@ But really, this libary is thought to embrace what you get for free, namely html
 ### And whats with all that `html.*` things?
 
 This gives you access to all html elements (and the elements you created). For html elements, do `html.name`, for web components do `html["name"]`. Any attributes & events can be passed as first argument, the inner content as second (as string or another `html.*`). If you don't have any attributes, just add the inner content.
+
+
+### None of my react tricks work here! This is bollocks!
+
+Coming from React, ey? Here are the key differences and gotchas you need to know:
+
+#### State Management is done not the React way
+
+**React way:**
+```jsx
+const [count, setCount] = useState(0);
+setCount(count + 1); // Creates new state
+```
+
+**pfusch way:**
+```javascript
+pfusch("my-counter", { count: 0 }, (state) => [
+  html.button({ 
+    click: () => state.count++ // Direct mutation!
+  }, `Count: ${state.count}`)
+]);
+```
+
+**Key difference:** pfusch uses direct state mutation via Proxy objects, not immutable updates. This feels more like Vue or vanilla JS.
+
+#### Re-rendering Philosophy
+
+**React:** Re-renders the entire component tree and uses virtual DOM diffing.
+
+**pfusch:** Only updates the specific DOM elements that changed. No virtual DOM, direct DOM manipulation.
+
+```javascript
+// This example shows how pfusch handles complex state
+pfusch("my-dialog", {
+  item: "",
+  result: null
+}, (state, trigger) => [
+  html.input({
+    value: state.item,
+    keydown: e => {
+      if (e.key === "Enter") {
+        // State mutation triggers selective re-render
+        state.result = "Starting the thing!";
+        trigger("generate", { item: e.target.value });
+      }
+    }
+  }),
+  // Only this part re-renders when state.result changes
+  state.result ? html.div({ class: "result" }, state.result) : null
+]);
+```
+
+#### Event Handling Differences
+
+**React:**
+```jsx
+<button onClick={handleClick}>Click me</button>
+```
+
+**pfusch:**
+```javascript
+html.button({ click: handleClick }, "Click me")
+// Note: it's 'click', not 'onClick'
+```
+
+Event names in pfusch are the standard DOM event names (click, keydown, change), not React's camelCase versions.
+
+#### Component Communication
+
+**React:** Props down, callbacks up + Context/Redux for complex state.
+
+**pfusch:** Attributes down, custom events up + global message bus.
+
+```javascript
+// Parent component
+pfusch("parent-component", { data: [] }, (state, trigger) => [
+  html["child-component"]({ 
+    items: state.data,
+    // This becomes an attribute on the child
+  })
+]);
+
+// Child component - triggers bubble up automatically
+pfusch("child-component", { items: [] }, (state, trigger) => [
+  html.button({
+    click: () => trigger("itemSelected", { id: 123 })
+    // This creates both a custom event AND a global message
+    // Event: "child-component.itemSelected"
+    // Global message: window.postMessage with event data
+  }, "Select")
+]);
+```
+
+#### Styling Gotchas
+
+**The Shadow DOM Trap:** Unlike React, pfusch uses Shadow DOM, so external CSS won't penetrate:
+
+```javascript
+// ❌ This won't work - external styles don't penetrate Shadow DOM
+// <style>my-component { color: red; }</style>
+
+// ✅ Use the css helper inside the component
+pfusch("my-component", {}, () => [
+  css`
+    :host {
+      color: red; /* Styles the component itself */
+    }
+    .content {
+      background: blue; /* Styles elements inside */
+    }
+  `,
+  html.div({ class: "content" }, "Styled content")
+]);
+
+// ✅ Or use the global pfusch style tag
+// <style id="pfusch-style">
+//   .shared-class { margin: 10px; }
+// </style>
+```
+
+#### Async Operations & Side Effects
+
+**React way (useEffect):**
+```jsx
+useEffect(() => {
+  fetchData().then(setData);
+}, [dependency]);
+```
+
+**pfusch way (script + state subscription):**
+```javascript
+pfusch("data-component", { url: "", data: [] }, (state) => [
+  script(async () => {
+    // Subscribe to state changes
+    state.subscribe("url", async (newUrl) => {
+      if (newUrl) {
+        state.data = await fetch(newUrl).then(r => r.json());
+      }
+    });
+  }),
+  html.ul(...state.data.map(item => html.li(item.name)))
+]);
+```
+
+#### Setting attributes vs State
+
+```javascript
+
+// 
+pfusch("my-component", { sometext: "" }, (state) => [
+  html.div({ class: "content" }, state.sometext),
+  script(() => {
+    // Directly mutate state
+    state.sometext = "Hello, pfusch!";
+  })
+]);
+
+// Later, attributes are set directly on the element (not state)
+const el = document.querySelector("my-component");
+el.setAttribute("sometext", "oh look I changed the text!");  // This will retrigger rendering
+
+```
+
+#### Attribute Case Handling (Important!)
+
+**HTML attributes are case-insensitive and get normalized to lowercase.** This can be confusing when working with camelCase JavaScript properties:
+
+```javascript
+// Your component state uses camelCase
+pfusch("my-component", { 
+  contentText: "hello",
+  maxLength: 100,
+  isVisible: true 
+}, (state) => [...]);
+```
+
+**✅ All of these work:**
+```html
+<!-- Original camelCase (gets converted to lowercase by HTML) -->
+<my-component contentText="Hello" maxLength="50" isVisible="true"></my-component>
+
+<!-- Explicit lowercase (what HTML actually stores) -->
+<my-component contenttext="Hello" maxlength="50" isvisible="true"></my-component>
+```
+
+**✅ Both of these work in JavaScript:**
+```javascript
+// Both camelCase and lowercase attribute names work
+el.setAttribute("contentText", "Hello");     // Works
+el.setAttribute("contenttext", "Hello");     // Also works
+```
+
+pfusch automatically handles the mapping between lowercase HTML attributes and camelCase JavaScript properties, so you don't have to worry about it! Well, except when you do. Like when you want to set it on the state directly, it does matter:
+
+```javascript
+pfusch("my-component", { contentText: "hello" }, (state) => [
+  html.div({ class: "content" }, state.contentText),
+  script(() => {
+    // This will NOT update the contentText attribute
+    state.contenttext = "Hello, pfusch!"; // This is lowercase!
+    // This will update the contentText attribute
+    state.contentText = "Hello, pfusch!"; // confusing, right?
+  })
+]);
+```
+
+#### 🚫 What You CAN'T Do (compared to React)
+
+1. **No JSX:** You use the `html` proxy object instead
+2. **No Hook Equivalents:** No useState, useEffect, useContext, etc.
+3. **No Component Composition Patterns:** No higher-order components, render props, etc.
+4. **No DevTools:** No React DevTools equivalent
+5. **No Ecosystem:** No vast library ecosystem like React has
+
+#### ✅ What You GET Instead
+
+1. **Native Web Components:** Work everywhere, no framework lock-in
+2. **Progressive Enhancement:** Enhance existing HTML instead of replacing it
+3. **No Build Step:** Works directly in browsers
+4. **Smaller Bundle:** 3.8K vs React's ~45K (even with tree shaking)
+5. **Form Integration:** Native form association and submission
+
+
+**Key insight:** pfusch blurs the line between DOM attributes and component state. Attributes can drive state changes, and state changes can be reflected as attributes.
+
+#### Performance Considerations
+
+- **Faster initial render:** No virtual DOM overhead
+- **Potentially slower complex updates:** No batching like React
+- **Memory usage:** Proxy objects for every component instance
+- **Bundle size:** Much smaller, but no tree shaking benefits
+
+#### Migration Tips
+
+1. **Think DOM-first:** Instead of "How would React do this?", think "How would vanilla JS do this?"
+2. **Embrace progressive enhancement:** Start with working HTML, then enhance
+3. **Use semantic HTML:** pfusch works best when enhancing existing markup
+4. **Keep components small:** No complex state management patterns available
+
+Remember: pfusch is intentionally simple and different. Don't try to recreate React patterns—embrace the pfusch way!

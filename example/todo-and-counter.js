@@ -3,12 +3,13 @@ import { buttonStyle } from './button.style.js';
 
 pfusch("my-count", { count: 0 }, state => [
     css` p { font-size: 1.5rem; margin-left: 1rem; } `,
+    html.h2('Counter'),
     html.p(`Count: ${state.count}`),
     buttonStyle('primary'),
     html.button({
         click: () => state.count++
     }, 'Increment'),
-])
+])  
 
 pfusch("todo-and-counter", { id: "todo-and-counter", count: 0, items: [] }, (state) => [
     buttonStyle('secondary'),
