@@ -1,5 +1,0 @@
-[
-    { "id": 1, "name": "item1", "price": 100, "in stock": true },
-    { "id": 2, "name": "item2", "price": 23 },
-    { "id": 3, "name": "item3", "price": 300, "in stock": true }
-]

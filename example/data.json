@@ -1,7 +1,0 @@
-{
-    "todos": [
-        { "id": 1, "text": "Learn pfusch", "completed": false },
-        { "id": 2, "text": "Learn JavaScript", "completed": true },
-        { "id": 3, "text": "Learn html", "completed": true }
-    ]
-}

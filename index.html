@@ -1,197 +1,868 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>Pfusch Test</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #f5f5f5;
-        }
-
-        /* declare the color variables */
-        :root {
-            --font-family: Roboto;
-            --primary-font-color: white;
-            --secondary-font-color: #424242;
-            --primary-background-color: #424242;
-            --primary-color: #EA4C89;
-            --primary-color-state: #F082AC;
-            --secondary-color: #2ea44f;
-            --secondary-color-state: #2ea4AC;
-            --accent-color: #FFC107;
-        }
-
-        body {
-            font-family: var(--font-family);
-        }
-        div {
-            border-radius: .5rem !important;
-            color: var(--primary-font-color);
-            background-color: var(--primary-background-color);
-            width: 80%;
-            padding: 3% 6%;
-            box-shadow: 0 0 2rem rgba(0, 0, 0, 0.8);
-        }
-    </style>
+    <title>Comprehensive Pfusch Example</title>
     <style id="pfusch-style">
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th,
-        td {
-            border: 1px solid hsl(0, 0%, 50%);
-            padding: 1rem;
-            text-align: left;
-        }
-
-        th {
-            background-color: hsl(0, 0%, 50%);
-            color: var(--accent-color);
-        }
-
-        tr:nth-child(odd) {
-            background-color: hsl(0, 0%, 95%);
-        }
-
-        tr:nth-child(even) {
-            background-color: hsl(0, 0%, 90%);
-        }
-
-        tbody tr {
-            cursor: pointer;
-            color: var(--secondary-font-color);
-        }
-
-        tbody tr:hover {
-            background-color: hsl(0, 0%, 80%);
-            color: var(--primary-font-color);
-        }
-        [role="tablist"] {
-            display: flex;
-            padding: 0;
+        html {
+            min-height: 100vh;
             margin: 0;
+            padding: 0;
         }
-        [role="tablist"] li {
-            list-style: none;
-            margin: 1rem 0;
-        }
-        a-tab-header, a[role="tab"] {
-            cursor: pointer;
-            text-decoration: none;
-            color: var(--primary-font-color);
-            padding: 1rem;
-        }
-        a-tab-header:hover, [role="tab"]:hover {
-            background-color: var(--primary-color-state);
-        }
-        a-tab-header.active, [role="tab"][aria-selected="true"] {
-            background-color: var(--primary-color);
-        }
-        a-tab-item, [role="tabpanel"][hidden] {
-            display: none;
-        }
-        a-tab-item.active, [role="tabpanel"], [role="tabpanel"]:active {
-            display: block;
-            border: 1px solid var(--primary-color);
-            padding: 1rem;
-        }
-        form {
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #222;
+            margin: 0;
+            padding: 0;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f8fafc 0%, #e3e9f7 100%);
+        }
+        body.bg-incremented {
+            background: linear-gradient(135deg, #e7f3ff 0%, #cce4ff 100%);
+        }
+        body.bg-decremented {
+            background: linear-gradient(135deg, #ffe7e7 0%, #ffcccc 100%);
+        }
+        .main-card {
+            background: #fff;
+            box-shadow: 0 6px 32px 0 rgba(60,72,100,0.10), 0 1.5px 6px 0 rgba(60,72,100,0.08);
+            border-radius: 18px;
+            padding: 36px 32px 32px 32px;
+            margin: 40px 0 40px 0;
+            max-width: 820px;
+            width: 100%;
+            min-width: 320px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 0.5em;
+            color: #2d3a4a;
+            text-align: center;
+        }
+        p {
+            text-align: center;
+            color: #5a6a85;
+            font-size: 1.15rem;
+            margin-bottom: 2.5em;
+        }
+        .highlight {
+            background-color: #fffbe6;
+            border: 1px solid #ffeaa7;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 12px 16px;
+            border-radius: 6px;
+        }
+        form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        input:invalid:focus {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 20%, 40%, 60%, 80% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+        }
+        button:focus {
+            outline: 2px solid #007bff;
+            outline-offset: 2px;
+        }
+        input:focus {
+            position: relative;
+            z-index: 1;
+        }
+        /* Add a subtle fade-in for the card */
+        .main-card {
+            animation: fadeInCard 0.7s cubic-bezier(.4,0,.2,1);
+        }
+        @keyframes fadeInCard {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Responsive tweaks */
+        @media (max-width: 900px) {
+            .main-card { max-width: 98vw; padding: 18px 4vw 24px 4vw; }
+        }
+        @media (max-width: 600px) {
+            .main-card { padding: 10px 2vw 16px 2vw; }
+            h1 { font-size: 2rem; }
         }
     </style>
-    <script src="example/todo-and-counter.js" type="module" async></script>
-    <script src="example/hello-world.js" type="module" async></script>
-    <script src="example/load.js" type="module"  async></script>
-    <script src="example/tab.js" type="module" async></script>
-    <script src="example/star-rating.js" type="module" async></script>
-    <script src="example/todo.js" type="module" async></script>
-    <script src="example/show-if.js" type="module" async></script>
 </head>
-
 <body>
-    <div>
-        <hello-world></hello-world>
-        <tab-panel>
-            <tab-item header="Todo & Counter">
-                <todo-and-counter></todo-and-counter>
-            </tab-item>
-            <tab-item header="Lazy Loading">
-                <load-script load="load-table" src="example/table.js"></load-script>
-                <h3>Lazy Loaded (will change only once fully loaded)</h3>
-                <table-wrapper url="example/items.json" as="lazy">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Price</th>
-                                <th>In Stock?</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <tr id="tr-4">
-                                <td id="td-1">prerendered item</td>
-                                <td id="td-2">100</td>
-                                <td id="td-3">yes</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </table-wrapper>
-                <h3>Immediatly Loaded</h3>
-                <table-wrapper url="example/items.json">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Price</th>
-                                <th>In Stock?</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <tr id="tr-4">
-                                <td id="td-1">prerendered item</td>
-                                <td id="td-2">100</td>
-                                <td id="td-3">yes</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </table-wrapper>
-            </tab-item>
-            <tab-item header="Forms">
-                <h1>Star Rating</h1>
-                <show-if query="submitted">
-                    <h1>Thank you for your feedback!</h1>
-                    <p>You voted:</p>
-                    <result-rating></result-rating>
-                    <result-comment></result-comment>
-                    <a href="?a-tab-index=2">Go back</a>
-                </show-if>
-                <show-if query="!submitted">
-                    <form method="get" action="">
-                        <input type="hidden" name="a-tab-index" value="2" aria-label="Tab to open on form submit">
-                        <input type="hidden" name="submitted" value="true" aria-label="Tracking if the form was submitted, as we don't have a backend">
-                        <star-rating id="rating" name="rating"></star-rating>
-                        <label for="comment">Comment</label>
-                        <textarea name="comment" id="comment" cols="30" rows="10" placeholder="Say what you think, but in friendly" aria-label="Comment"></textarea>
-                        <button type="submit">Submit</button>
-                    </form>
-                </show-if>
-            </tab-item>
-        </tab-panel>
-    </div>
-</body>
+    <div class="main-card">
+        <h1>Pfusch</h1>
+        <p>A quick showcase of the Pfusch framework.</p>
 
+        <tab-element active-tab="hello">
+            <tab-content tab="hello" title="Hello World">
+                <hello-world who="Universe"></hello-world>
+            </tab-content>
+            
+            <tab-content tab="counter" title="Counter">
+                <my-counter count="10"></my-counter>
+            </tab-content>
+            
+            <tab-content tab="forms" title="Forms">
+                <form-validator>
+                    <form id="test-form">
+                        <my-input name="username" placeholder="Enter username" required="true"></my-input>
+                        <my-input name="email" type="email" placeholder="Enter email" required="true"></my-input>
+                        <button type="submit" id="submit-btn">Submit</button>
+                    </form>
+                </form-validator>
+            </tab-content>
+            
+            <tab-content tab="todo" title="Todo App">
+                <todo-app todos="[{&quot;id&quot;:1,&quot;text&quot;:&quot;Learn pfusch&quot;,&quot;completed&quot;:false},{&quot;id&quot;:2,&quot;text&quot;:&quot;Learn JavaScript &quot;,&quot;completed&quot;:true},{&quot;id&quot;:3,&quot;text&quot;:&quot;Learn html&quot;,&quot;completed&quot;:true}]"></todo-app>
+            </tab-content>
+            
+            <tab-content tab="table" title="Progressive Enhancement">
+                <enhanced-table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-content">
+                            <tr>
+                                <td>Loading...</td>
+                                <td>...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </enhanced-table>
+            </tab-content>
+        </tab-element>
+    </div>
+
+    <script type="module">
+        import { pfusch, html, css, script } from './pfusch.js';
+
+        // Tab system components
+        pfusch("tab-element", { activeTab: "hello", tabs: [] }, (state, trigger, { children }) => [
+            css`
+                .tab-container {
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    margin: 20px 0;
+                }
+                .tab-nav {
+                    display: flex;
+                    background: #f8f9fa;
+                    border-bottom: 1px solid #ddd;
+                    flex-wrap: wrap;
+                }
+                .tab-button {
+                    background: none;
+                    border: none;
+                    padding: 15px 20px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #666;
+                    border-bottom: 3px solid transparent;
+                    transition: all 0.2s ease;
+                    flex: 1;
+                    min-width: 120px;
+                }
+                .tab-button:hover {
+                    background: #e9ecef;
+                    color: #333;
+                }
+                .tab-button.active {
+                    color: #007bff;
+                    border-bottom-color: #007bff;
+                    background: white;
+                }
+                .tab-content-area {
+                    padding: 20px;
+                    min-height: 400px;
+                }
+                /* Hide all tab-content by default */
+                ::slotted(tab-content) {
+                    display: none;
+                }
+                /* Show only the active tab-content */
+                ::slotted(tab-content[isactive="true"]) {
+                    display: block;
+                }
+            `,
+            script(() => {
+                // Get tab content elements from light DOM
+                const tabContents = children('tab-content');
+                
+                // Only initialize tabs if they haven't been set yet
+                if (state.tabs.length === 0) {
+                    const newTabs = tabContents.map(content => ({
+                        id: content.getAttribute('tab'),
+                        title: content.getAttribute('title'),
+                        element: content
+                    }));
+                    
+                    // Use Object.assign to avoid triggering reactivity during initialization
+                    Object.assign(state, { tabs: newTabs });
+                    
+                    // Set initial active tab if not set
+                    if (!state.activeTab && newTabs.length > 0) {
+                        Object.assign(state, { activeTab: newTabs[0].id });
+                    }
+                }
+                
+                // Function to update tab visibility
+                const updateTabVisibility = (activeTabId) => {
+                    state.tabs.forEach(tab => {
+                        if (tab.id === activeTabId) {
+                            tab.element.setAttribute('isactive', 'true');
+                        } else {
+                            tab.element.removeAttribute('isactive');
+                        }
+                    });
+                };
+                
+                // Subscribe to activeTab changes to update visibility
+                state.subscribe('activeTab', updateTabVisibility);
+                
+                // Initial visibility update
+                updateTabVisibility(state.activeTab);
+            }),
+            html.div({ class: "tab-container" },
+                html.div({ class: "tab-nav" },
+                    ...state.tabs.map(tab => 
+                        html.button({
+                            id: `tab-btn-${tab.id}`,
+                            class: `tab-button ${state.activeTab === tab.id ? 'active' : ''}`,
+                            click: () => state.activeTab = tab.id
+                        }, tab.title)
+                    )
+                ),
+                html.div({
+                    id: "tab-content-area",
+                    class: "tab-content-area"
+                },
+                    // Use a slot to show the light DOM content
+                    html.slot()
+                )
+            )
+        ]);
+
+        pfusch("tab-content", { tab: "", title: "", isActive: false }, (state) => [
+            // This component acts as a container, its content is managed by tab-element
+            state.isActive ? html.slot() : html.div({ style: "display: none;" })
+        ]);
+
+        // 1. Simple hello world with template literals
+        pfusch("hello-world", { who: "World" }, (state) => [
+            html.div(html.h2`Hello ${state.who}!`, html.p`Welcome to pfusch`)
+        ]);
+
+        // 2. Counter with styling and events
+        pfusch("my-counter", { count: 0 }, (state, trigger) => [
+            css`
+                .counter-container {
+                    border: 2px solid #007bff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    text-align: center;
+                    margin: 20px 0;
+                }
+                .count-display {
+                    font-size: 32px;
+                    font-weight: bold;
+                    color: #007bff;
+                    margin: 15px 0;
+                }
+                button {
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    margin: 0 5px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                }
+                button:hover {
+                    background: #0056b3;
+                }
+                button:active {
+                    transform: translateY(1px);
+                }
+            `,
+            html.div({ class: "counter-container" },
+                html.div({ class: "count-display" }, `Count: ${state.count}`),
+                html.button({ 
+                    id: "increment-btn",
+                    click: () => {
+                        state.count++;
+                        trigger("incremented", { newValue: state.count });
+                    }
+                }, "Increment"),
+                html.button({ 
+                    id: "decrement-btn",
+                    click: () => {
+                        state.count--;
+                        trigger("decremented", { newValue: state.count });
+                    }
+                }, "Decrement"),
+                html.button({ 
+                    id: "reset-btn",
+                    click: () => {
+                        state.count = 0;
+                        trigger("reset", { newValue: 0 });
+                    }
+                }, "Reset")
+            )
+        ]);
+
+        // 3. Form input component with live character counter and proper validation
+        pfusch("my-input", { 
+            name: "", 
+            placeholder: "", 
+            value: "", 
+            type: "text", 
+            maxLength: 50, 
+            required: false, 
+            errorMessage: "",
+            isValid: true,
+            hasBlurred: false
+        }, (state, trigger) => [
+            css`
+                .input-group {
+                    margin: 10px 0;
+                }
+                label {
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                }
+                input {
+                    width: 100%;
+                    padding: 8px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+                }
+                input:focus {
+                    outline: none;
+                    border-color: #007bff;
+                    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+                }
+                input:invalid {
+                    border-color: #dc3545;
+                    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+                }
+                input.custom-invalid {
+                    border-color: #dc3545;
+                    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+                }
+                input.custom-valid {
+                    border-color: #28a745;
+                    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+                }
+                .char-counter {
+                    font-size: 12px;
+                    color: #666;
+                    margin-top: 4px;
+                }
+                .char-counter.warning {
+                    color: #ff6b35;
+                }
+                .char-counter.over-limit {
+                    color: #dc3545;
+                    font-weight: bold;
+                }
+                .error-message {
+                    color: #dc3545;
+                    font-size: 12px;
+                    margin-top: 4px;
+                    font-weight: 500;
+                }
+                .valid-message {
+                    color: #28a745;
+                    font-size: 12px;
+                    margin-top: 4px;
+                }
+            `,
+            script(function() {
+                let inputElement = null;
+                // Use the component context provided by the script execution
+                const componentContext = this.component;
+                
+                // Enhanced validation function
+                const validateInput = (value = state.value, showErrors = state.hasBlurred) => {
+                    let errorMessage = '';
+                    let isValid = true;
+                    
+                    // Required field validation
+                    if (state.required && (!value || value.trim() === '')) {
+                        errorMessage = 'This field is required';
+                        isValid = false;
+                    }
+                    // Email validation
+                    else if (state.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                        errorMessage = 'Please enter a valid email address';
+                        isValid = false;
+                    }
+                    // Max length validation
+                    else if (value && value.length > state.maxLength) {
+                        errorMessage = `Maximum ${state.maxLength} characters allowed`;
+                        isValid = false;
+                    }
+                    
+                    // Only show error message if the user has interacted with the field
+                    state.errorMessage = showErrors ? errorMessage : '';
+                    state.isValid = isValid;
+                    
+                    // Set custom validity for native browser tooltips
+                    if (inputElement) {
+                        inputElement.setCustomValidity(errorMessage);
+                        
+                        // Add visual classes based on validation state
+                        inputElement.classList.remove('custom-valid', 'custom-invalid');
+                        if (showErrors) {
+                            if (isValid && value) {
+                                inputElement.classList.add('custom-valid');
+                            } else if (!isValid) {
+                                inputElement.classList.add('custom-invalid');
+                            }
+                        }
+                    }
+                    
+                    // Trigger validation event for form-level handling
+                    trigger('validation', { 
+                        name: state.name, 
+                        isValid, 
+                        errorMessage, 
+                        value 
+                    });
+                    
+                    return isValid;
+                };
+                
+                // Subscribe to value changes for real-time validation
+                state.subscribe('value', (newValue) => {
+                    validateInput(newValue, state.hasBlurred);
+                });
+                
+                // Subscribe to required changes
+                state.subscribe('required', () => {
+                    validateInput(state.value, state.hasBlurred);
+                });
+                
+                // Store reference to input element for validation
+                setTimeout(() => {
+                    if (componentContext && componentContext.shadowRoot) {
+                        inputElement = componentContext.shadowRoot.querySelector('input');
+                        validateInput(state.value, false); // Initial validation without showing errors
+                    }
+                }, 0);
+            }),
+            html.div({ class: "input-group" },
+                html.label({ for: `input-${state.name}` }, state.placeholder),
+                html.input({
+                    id: `input-${state.name}`,
+                    name: state.name,
+                    placeholder: state.placeholder,
+                    type: state.type,
+                    value: state.value,
+                    maxlength: state.maxLength,
+                    required: state.required,
+                    input: (e) => {
+                        state.value = e.target.value;
+                    },
+                    keydown: (e) => {
+                        if (e.key === "Enter") {
+                            // Bubble a submit event up from the custom element host
+                            const host = e.target.getRootNode().host;
+                            if (host) {
+                                host.dispatchEvent(new CustomEvent("submit", {
+                                    bubbles: true,
+                                    composed: true
+                                }));
+                            }
+                        }
+                    },
+                    blur: (e) => {
+                        state.hasBlurred = true;
+                    },
+                    focus: (e) => {
+                        // Clear invalid styling on focus to give user a fresh start
+                        e.target.classList.remove('custom-invalid');
+                    }
+                }),
+                html.div({ 
+                    id: `counter-${state.name}`,
+                    class: `char-counter ${
+                        state.value.length > state.maxLength ? 'over-limit' :
+                        state.value.length > state.maxLength * 0.8 ? 'warning' : ''
+                    }` 
+                }, `${state.value.length}/${state.maxLength} characters`),
+                state.errorMessage ? 
+                    html.div({ class: "error-message" }, state.errorMessage) : 
+                    (state.isValid && state.value && state.hasBlurred ? 
+                        html.div({ class: "valid-message" }, "✓ Valid") : null)
+            )
+        ]);
+
+        // Form validator component to manage form-level validation
+        pfusch("form-validator", { 
+            fieldStates: new Map(),
+            isFormValid: false 
+        }, (state, trigger, { children }) => [
+            css`
+                .form-container {
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    background: #f8f9fa;
+                }
+                button[type="submit"]:disabled {
+                    background: #6c757d;
+                    cursor: not-allowed;
+                    opacity: 0.6;
+                }
+                button[type="submit"] {
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    margin-top: 10px;
+                    transition: background-color 0.2s ease;
+                }
+                button[type="submit"]:not(:disabled):hover {
+                    background: #0056b3;
+                }
+                .form-status {
+                    margin-top: 10px;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 14px;
+                }
+                .form-status.invalid {
+                    background: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f1aeb5;
+                }
+                .form-status.valid {
+                    background: #d1e7dd;
+                    color: #0a3622;
+                    border: 1px solid #a3cfbb;
+                }
+            `,
+            script(function() {
+                // Use the component context provided by the script execution
+                const componentContext = this.component;
+                
+                // Listen for validation events from child inputs
+                componentContext.addEventListener('my-input.validation', (e) => {
+                    const { name, isValid, errorMessage, value } = e.detail;
+                    
+                    // Update field state
+                    state.fieldStates.set(name, { isValid, errorMessage, value, hasValue: !!value });
+                    
+                    // Check overall form validity
+                    const allValid = Array.from(state.fieldStates.values()).every(field => field.isValid);
+                    const hasRequiredFields = Array.from(state.fieldStates.values()).some(field => field.hasValue);
+                    
+                    state.isFormValid = allValid && hasRequiredFields;
+                    
+                    // Update submit button state
+                    setTimeout(() => {
+                        if (componentContext && componentContext.shadowRoot) {
+                            const submitButton = componentContext.shadowRoot.querySelector('button[type="submit"]');
+                            if (submitButton) {
+                                submitButton.disabled = !state.isFormValid;
+                            }
+                        }
+                    }, 0);
+                });
+                
+                // Initial state - disable submit button
+                setTimeout(() => {
+                    if (componentContext && componentContext.shadowRoot) {
+                        const submitButton = componentContext.shadowRoot.querySelector('button[type="submit"]');
+                        if (submitButton) {
+                            submitButton.disabled = true;
+                        }
+                    }
+                }, 0);
+            }),
+            html.div({ class: "form-container" },
+                html.slot(),
+                state.fieldStates.size > 0 && !state.isFormValid ? 
+                    html.div({ class: "form-status invalid" }, 
+                        "Please fix validation errors before submitting") : 
+                    (state.isFormValid ? 
+                        html.div({ class: "form-status valid" }, 
+                            "✓ Form is ready to submit") : null)
+            )
+        ]);
+
+        // 4. Todo app with component composition
+        pfusch("todo-item", { id: "", text: "", completed: false }, (state, trigger) => [
+            css`
+                .todo-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 10px;
+                    border-bottom: 1px solid #eee;
+                }
+                .todo-item.completed .todo-text {
+                    text-decoration: line-through;
+                    opacity: 0.6;
+                }
+                .todo-text {
+                    flex: 1;
+                    margin: 0 10px;
+                }
+                .delete-btn {
+                    background: #dc3545;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+            `,
+            html.div({ 
+                class: `todo-item ${state.completed ? 'completed' : ''}`,
+                id: `todo-${state.id}`
+            },
+                html.input({
+                    type: "checkbox",
+                    checked: state.completed,
+                    change: () => {
+                        state.completed = !state.completed;
+                        trigger("toggle", state);
+                    }
+                }),
+                html.span({ class: "todo-text" }, state.text),
+                html.button({
+                    class: "delete-btn",
+                    click: () => trigger("delete", state)
+                }, "Delete")
+            )
+        ]);
+
+        pfusch("todo-app", { todos: [], newTodo: "", nextId: 1 }, (state, trigger) => [
+            css`
+                .todo-app {
+                    max-width: 500px;
+                    margin: 20px auto;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                .todo-header {
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-bottom: 1px solid #ddd;
+                }
+                .todo-input {
+                    width: 100%;
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    box-sizing: border-box;
+                }
+                .todo-list {
+                    max-height: 300px;
+                    overflow-y: auto;
+                }
+                .empty-state {
+                    padding: 40px;
+                    text-align: center;
+                    color: #6c757d;
+                }
+            `,
+            script(() => {
+                // Validate todos when loaded from attributes
+                state.subscribe('todos', (newTodos) => {
+                    if (Array.isArray(newTodos) && newTodos.length > 0) {
+                        // Check if any todo is missing an id
+                        const missingIds = newTodos.filter(todo => !todo.id);
+                        if (missingIds.length > 0) {
+                            console.error('Todo app: All todos must have an "id" property when passed as attributes');
+                            console.error('Missing IDs in todos:', missingIds);
+                            throw new Error(`Todo app: ${missingIds.length} todo(s) missing required "id" property`);
+                        }
+                        
+                        // Update nextId to be higher than any existing ID
+                        const maxId = Math.max(...newTodos.map(todo => todo.id));
+                        if (maxId >= state.nextId) {
+                            state.nextId = maxId + 1;
+                        }
+                    }
+                });
+            }),
+            html.div({ class: "todo-app" },
+                html.div({ class: "todo-header" },
+                    html.h3("Todo List"),
+                    html.input({
+                        class: "todo-input",
+                        placeholder: "Add a new todo...",
+                        value: state.newTodo,
+                        input: (e) => state.newTodo = e.target.value,
+                        keydown: (e) => {
+                            if (e.key === 'Enter' && state.newTodo.trim()) {
+                                state.todos = [...state.todos, {
+                                    id: state.nextId++,
+                                    text: state.newTodo.trim(),
+                                    completed: false
+                                }];
+                                state.newTodo = '';
+                            }
+                        }
+                    })
+                ),
+                html.div({ class: "todo-list" },
+                    state.todos.length === 0 
+                        ? html.div({ class: "empty-state" }, "No todos yet. Add one above!")
+                        : state.todos.map(todo => 
+                            html["todo-item"]({
+                                ...todo,
+                                "todo-item.toggle": (e) => {
+                                    const index = state.todos.findIndex(t => t.id === e.detail.id);
+                                    if (index >= 0) {
+                                        const newTodos = [...state.todos];
+                                        newTodos[index] = { ...newTodos[index], ...e.detail };
+                                        state.todos = newTodos;
+                                    }
+                                },
+                                "todo-item.delete": (e) => {
+                                    state.todos = state.todos.filter(t => t.id !== e.detail.id);
+                                }
+                            })
+                        )
+                )
+            )
+        ]);
+
+        // 5. Progressive enhancement example
+        pfusch("enhanced-table", { data: [] }, (state) => [
+            script(async () => {
+                // Simulate loading data
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                state.data = [
+                    { name: "Component 1", status: "Active" },
+                    { name: "Component 2", status: "Inactive" },
+                    { name: "Component 3", status: "Pending" }
+                ];
+            }),
+            html.tbody({ id: "table-content" },
+                ...state.data.map(item => 
+                    html.tr(
+                        html.td(item.name),
+                        html.td(item.status)
+                    )
+                )
+            )
+        ]);
+
+        // Listen for global events
+        window.addEventListener('message', (event) => {
+            if (event.data.eventName) {
+                console.log('Global event:', event.data);
+                if (event.data.eventName.includes('incremented')) {
+                    document.body.classList.add('bg-incremented');
+                    setTimeout(() => {
+                        document.body.classList.remove('bg-incremented');
+                    }, 1000);
+                } else if (event.data.eventName.includes('decremented')) {
+                    document.body.classList.add('bg-decremented');
+                    setTimeout(() => {
+                        document.body.classList.remove('bg-decremented');
+                    }, 1000);
+                }
+            }
+        });
+
+        // Enhanced form submission handler with proper validation
+        document.addEventListener('submit', (e) => {
+            if (e.target.id === 'test-form') {
+                e.preventDefault();
+                
+                // Get the form validator component
+                const formValidator = e.target.closest('form-validator');
+                
+                if (!formValidator || !formValidator.state.isFormValid) {
+                    // Show native validation messages for any invalid fields
+                    const customInputs = e.target.querySelectorAll('my-input');
+                    let firstInvalidField = null;
+                    
+                    customInputs.forEach(input => {
+                        const shadowInput = input.shadowRoot.querySelector('input');
+                        if (shadowInput && !shadowInput.checkValidity()) {
+                            if (!firstInvalidField) {
+                                firstInvalidField = shadowInput;
+                            }
+                            // Trigger the browser's native validation UI
+                            shadowInput.reportValidity();
+                        }
+                    });
+                    
+                    // Focus the first invalid field
+                    if (firstInvalidField) {
+                        firstInvalidField.focus();
+                    }
+                    
+                    return;
+                }
+                
+                // Form is valid, collect data and submit
+                const customInputs = e.target.querySelectorAll('my-input');
+                const formData = {};
+                
+                customInputs.forEach(input => {
+                    const name = input.getAttribute('name');
+                    const value = input.state ? input.state.value : '';
+                    formData[name] = value;
+                });
+                
+                console.log('Form submitted successfully:', formData);
+                
+                // Show success message
+                const submitButton = e.target.querySelector('button[type="submit"]');
+                const originalText = submitButton.textContent;
+                submitButton.textContent = '✓ Submitted!';
+                submitButton.disabled = true;
+                
+                setTimeout(() => {
+                    submitButton.textContent = originalText;
+                    submitButton.disabled = false;
+                    
+                    // Optional: Clear form
+                    customInputs.forEach(input => {
+                        if (input.state) {
+                            input.state.value = '';
+                            input.state.hasBlurred = false;
+                            input.state.errorMessage = '';
+                        }
+                    });
+                }, 2000);
+            }
+        });
+    </script>
+</body>
 </html>

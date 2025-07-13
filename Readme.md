@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-227-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-4.1K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.9K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-478-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-7.2K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-2.6K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -385,78 +385,6 @@ Every component will have this style applied, so you can define some base styles
 ```
 
 This will add the stylesheet to the shadow dom of the component, so you can pass classes to the inside.
-
-### What's that as=interactive thing?
-
-Pfusch-Elements with the `as=interactive` attribute will not be overwritten with new inner elements, but only enhanced with functionality. A simple example is the tab component from the example folder:
-
-```html 
-    <style id="pfusch-style">
-        a-tab-header {
-            display: inline-block;
-            padding: 1rem;
-            cursor: pointer;
-        }
-        a-tab-header:hover {
-            background-color: var(--primary-color-state);
-        }
-        a-tab-header.active {
-            background-color: var(--primary-color);
-        }
-        a-tab-item {
-            display: none;
-        }
-        a-tab-item.active {
-            display: block;
-            border: 1px solid var(--primary-color);
-            padding: 1rem;
-        }
-    </style>
-    <a-tab>
-        <a-tab-header class="active">
-            Tab 1
-        </a-tab-header>
-        <a-tab-header>
-            Tab 2
-        </a-tab-header>
-        <a-tab-item class="active">
-            Hello on tab 1
-        </a-tab-item>
-        <a-tab-item>
-            Hello on tab 2
-        </a-tab-item>
-    </a-tab>
-```
-
-This gives us a tab view, but without any logic, which we add with the following script:
-
-```js
-import { pfusch, html } from "../pfusch.js";
-
-const setTabActivityState = (state) => (element, index) => {
-    if (state.activeIndex === index) {
-        element.classList.add("active");
-    } else {
-        element.classList.remove("active");
-    }
-}
-
-pfusch("a-tab", { activeIndex: 0 }, state => [
-    html[`a-tab-header`]({
-        as: "interactive",
-        apply: setTabActivityState(state),
-        click: (e) => {
-            state.activeIndex = e.target.index;
-        },
-    }),
-    html[`a-tab-item`]({
-        as: "interactive",
-        apply: setTabActivityState(state)
-    })
-])
-```
-
-Now, as soon as the script is loaded, the tabs will be interactive and you can switch between them. The `apply` function is called for every element that has the `as=interactive` attribute every time the state changes, allowing you to react on state changes. It gives you the element and the index of the element in the array of elements of this type that belongs to the same parent.
 
 ### Okay, but I want to do something when state changes
 
