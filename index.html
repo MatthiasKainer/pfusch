@@ -240,7 +240,7 @@
                 // Initial visibility update
                 updateTabVisibility(state.activeTab);
             }),
-            html.div({ class: "tab-container" },
+            state.tabs?.length > 0 ? html.div({ id: "tab-container", class: "tab-container" },
                 html.div({ class: "tab-nav" },
                     ...state.tabs.map(tab => 
                         html.button({
@@ -257,7 +257,7 @@
                     // Use a slot to show the light DOM content
                     html.slot()
                 )
-            )
+            ) : null
         ]);
 
         pfusch("tab-content", { tab: "", title: "", isActive: false }, (state) => [
