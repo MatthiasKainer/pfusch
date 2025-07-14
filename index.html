@@ -105,7 +105,7 @@
         <h1>Pfusch</h1>
         <p>A quick showcase of the Pfusch framework.</p>
 
-        <tab-element active-tab="hello">
+        <tab-element>
             <tab-content tab="hello" title="Hello World">
                 <hello-world who="Universe"></hello-world>
             </tab-content>
@@ -664,7 +664,7 @@
             )
         ]);
 
-        pfusch("todo-app", { todos: [], newTodo: "", nextId: 1 }, (state, trigger) => [
+        pfusch("todo-app", { todos: [], nextId: 1 }, (state, trigger) => [
             css`
                 .todo-app {
                     max-width: 500px;
@@ -722,16 +722,15 @@
                     html.input({
                         class: "todo-input",
                         placeholder: "Add a new todo...",
-                        value: state.newTodo,
-                        input: (e) => state.newTodo = e.target.value,
                         keydown: (e) => {
-                            if (e.key === 'Enter' && state.newTodo.trim()) {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
                                 state.todos = [...state.todos, {
                                     id: state.nextId++,
-                                    text: state.newTodo.trim(),
+                                    text: e.target.value.trim(),
                                     completed: false
                                 }];
-                                state.newTodo = '';
+                                state.newTodo = e.target.value;
+                                e.target.value = '';
                             }
                         }
                     })

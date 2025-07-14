@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-478-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-7.2K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-2.6K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-202-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-4.5K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.9K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -486,6 +486,22 @@ html.button({ click: handleClick }, "Click me")
 ```
 
 Event names in pfusch are the standard DOM event names (click, keydown, change), not React's camelCase versions.
+
+#### Controlling Components
+
+**React:** Controlled components use state, uncontrolled use refs.
+
+```javascript
+<input value={state.value} onChange={e => setState({ value: e.target.value })} />
+```
+
+**pfusch:** You don't have to control them in the first place, they are controlled by default. You actually don't want to, because that would mean rerendering the entire component on every change. Instead, you can just mutate the state directly:
+
+```javascript
+html.input({
+  change: e => state.value = e.target.value // Don't pass it as a prop, just mutate state directly
+})
+```
 
 #### Component Communication
 

@@ -1,463 +1,187 @@
-const s = 'string';
-const o = 'object';
-function json(jsonString) {
-    try {
-        return (!(jsonString && typeof jsonString === s)) ? jsonString : JSON.parse(jsonString);
-    } catch (error) {
-        return jsonString;
-    }
-}
+const s = 'string', o = 'object';
+const json = j => { try { return j && typeof j === s ? JSON.parse(j) : j; } catch { return j; } };
+const jstr = JSON.stringify;
+const str = (string, ...tags) => typeof string === s ? string : string.reduce((acc, part, i) => acc + part + (tags[i] || ''), '');
 
-const jstr = (obj) => JSON.stringify(obj);
+export const css = (style, ...tags) => ({ type: 'style', content: () => { const sheet = new CSSStyleSheet(); sheet.replaceSync(str(style, ...tags)); return sheet; } });
+export const script = js => ({ type: 'script', content: js });
 
-const str = (string, ...tags) =>
-    (typeof string === s) ? string : string.reduce((acc, part, i) => {
-        return acc + part + (tags[i] || '');
-    }, '');
-
-export function css(style, ...tags) {
-    return {
-        type: 'style',
-        content: () => {
-            const sheet = new CSSStyleSheet();
-            sheet.replaceSync(str(style, ...tags));
-            return sheet;
+const addAttr = (el) => ([k, v]) => {
+    if (+k == k) return;
+    if (typeof v === 'function') {
+        el._re ??= [];
+        if (el._re.indexOf(k) < 0) {
+            el.addEventListener(k, v);
+            el._re.push(k);
         }
-    };
-}
-
-export const script = (js) => ({
-    type: 'script',
-    content: js
-});
-
-const addAttribute = (element) => ([key, value]) => {
-    if (parseInt(key, 10) == key) return;
-    if (typeof value === 'function') {
-        element._re ??= [];
-        if (element._re.indexOf(key) < 0) {
-            element.addEventListener(key, value);
-            element._re.push(key);
-        }
-    } else if (typeof value === o && element.state) {
-        element.state[key] = value;
+    } else if (typeof v === o && el.state) {
+        el.state[k] = v;
     } else {
-        // Special handling for form element properties
-        if (key === 'value' && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT')) {
-            element.value = value;
-        } else if (key === 'checked' && element.tagName === 'INPUT' && element.type === 'checkbox') {
-            element.checked = value === true || value === 'true';
+        if (k in el) {
+            el[k] = v;
         } else {
-            element.setAttribute(key, typeof value === o ? jstr(value) : value);
+            el.setAttribute(k, typeof v === o ? jstr(v) : v);
         }
     }
-}
+};
 
-export const toElem = (node) => {
-    if (node instanceof Element) return node;
-    if (node instanceof HTMLElement) {
-        // Create a wrapper that contains the existing HTML element
-        return {
-            element: node,
-            // Allow it to work with our system
-            appendChild: (child) => node.appendChild(child instanceof Element ? child.element : child),
-            textContent: node.textContent,
-            innerHTML: node.innerHTML
-        };
-    }
-    return node.nodeType === 3 ? node.textContent : node;
-}
+export const toElem = node => node instanceof Element ? node : node instanceof HTMLElement ? { element: node } : node.nodeType === 3 ? node.textContent : node;
 
 class Element {
-    element = null;
-    state = {};
-    add(option, ah = () => []) {
-        if (!Array.isArray(option) && typeof option !== o) {
-            this.element.appendChild(document.createTextNode(option));
-        } else if (Array.isArray(option)) {
-            // Handle arrays of children
-            option.forEach(child => this.add(child, ah));
-        } else if (option?.raw) {
-            this.element.innerHTML = str(option, ...ah());
-        } else if (option instanceof HTMLElement) {
-            this.element.appendChild(option);
-        } else if (option instanceof Element) {
-            this.element.appendChild(option.element);
-        } else if (option?.element) {
-            // Handle web component elements
-            this.element.appendChild(option.element);
-        } else if (option && typeof option === o) {
-            Object.entries(option).forEach(addAttribute(this.element));
-        }
-        return this;
-    }
     constructor(name, ...rest) {
         this.element = document.createElement(name);
-        if (!rest.length) return;
-        this.state = rest[0];
+        this.state = rest[0] || {};
         rest.forEach((item, i) => this.add(item, () => rest.slice(i + 1)));
-        // Assign auto-ID if not set by template/attributes
-        if (!this.element.id) {
-            this.element.id = `${name.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`;
-        }
+        this.element.id ||= `${name.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`;
+    }
+    add(option, ah = () => []) {
+        if (!option) return this;
+        const t = typeof option;
+        if (t === 'string') this.element.appendChild(document.createTextNode(option));
+        else if (Array.isArray(option)) option.forEach(c => this.add(c, ah));
+        else if (option.raw) this.element.innerHTML = str(option, ...ah());
+        else if (option.element || option instanceof HTMLElement) this.element.appendChild(option.element || option);
+        else if (t === o) Object.entries(option).forEach(addAttr(this.element));
+        return this;
     }
 }
 
-export const html = new Proxy({}, { 
-    get: (_, key) => {
-        const elementCreator = (...args) => {
-            // Handle template literals (tagged template strings)
-            if (args[0] && Array.isArray(args[0]) && args[0].raw) {
-                const content = str(args[0], ...args.slice(1));
-                return new Element(key, content);
-            }
-            
-            // Handle custom web components (with hyphens) differently
-            if (key.includes('-') || customElements.get(key)) {
-                const element = document.createElement(key);
-                if (args.length > 0 && args[0] && typeof args[0] === 'object' && !Array.isArray(args[0])) {
-                    // First argument is attributes
-                    Object.entries(args[0]).forEach(([attrKey, value]) => {
-                        if (typeof value === 'function') {
-                            element.addEventListener(attrKey, value);
-                        } else {
-                            element.setAttribute(attrKey, typeof value === 'object' ? jstr(value) : value);
-                        }
-                    });
-                    
-                    // Remaining arguments are children
-                    args.slice(1).forEach(child => {
-                        if (typeof child === 'string') {
-                            element.appendChild(document.createTextNode(child));
-                        } else if (child instanceof Element) {
-                            element.appendChild(child.element);
-                        } else if (child instanceof HTMLElement) {
-                            element.appendChild(child);
-                        }
-                    });
-                } else {
-                    // All arguments are children
-                    args.forEach(child => {
-                        if (typeof child === 'string') {
-                            element.appendChild(document.createTextNode(child));
-                        } else if (child instanceof Element) {
-                            element.appendChild(child.element);
-                        } else if (child instanceof HTMLElement) {
-                            element.appendChild(child);
-                        }
-                    });
-                }
-                
-                return { element };
-            }
-            
-            // Regular HTML elements
-            return new Element(key, ...args);
-        };
+export const html = new Proxy({}, {
+    get: (_, key) => (...args) => {
+        if (args[0]?.raw) return new Element(key, str(args[0], ...args.slice(1)));
         
-        // Support template literals by returning the function directly
-        return elementCreator;
-    } 
+        if (key.includes('-') || customElements.get(key)) {
+            const el = document.createElement(key);
+            const [attrs, ...children] = args[0] && typeof args[0] === o && !Array.isArray(args[0]) ? args : [{}, ...args];
+            
+            Object.entries(attrs).forEach(([k, v]) => 
+                el[typeof v === 'function' ? 'addEventListener' : 'setAttribute'](k, typeof v === o ? jstr(v) : v)
+            );
+            
+            children.forEach(c => el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c?.element || c));
+            return { element: el };
+        }
+        
+        return new Element(key, ...args);
+    }
 });
 
 export function pfusch(tagName, initialState, template) {
-    if (!template) {
-        template = initialState;
-        initialState = {};
-    }
-    initialState = { ...initialState };
+    if (!template) [template, initialState] = [initialState, {}];
+    
     class Pfusch extends HTMLElement {
         static formAssociated = true;
-        #internals;
-
+        static observedAttributes = ["id", "as", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase()])];
+        
         constructor() {
             super();
             this.#internals = this.attachInternals();
-            const internals = this.#internals;
             this.scriptsExecuted = false;
-            this.initialized = false;
+            this.subscribers = {};
             
-            // Initialize state from attributes and initialState
             this.is = { ...initialState };
-            for (const [key, value] of Object.entries(initialState)) {
-                const attrValue = this.getAttribute(key) || this.getAttribute(key.toLowerCase());
-                if (attrValue !== null) {
-                    this.is[key] = json(attrValue);
-                }
+            for (const [k, v] of Object.entries(initialState)) {
+                const attr = this.getAttribute(k) || this.getAttribute(k.toLowerCase());
+                if (attr !== null) this.is[k] = json(attr);
             }
             
-            // Store light DOM children before creating shadow DOM
             this.lightDOMChildren = Array.from(this.children);
-            
-            const stateProxy = (onChange) => {
-                const subscribers = {};
-                const proxy = new Proxy({ ...this.is }, {
-                    set(target, key, value) {
-                        if (target[key] !== value) {
-                            target[key] = value;
-                            if (key !== "subscribe") {
-                                onChange();
-                                internals.setFormValue(jstr(target));
-                            }
-                            (subscribers[key] || []).forEach(callback => callback(value));
-                        }
-                        return true;
-                    },
-                    get: (target, key) => target[key]
-                });
-                proxy.subscribe = (prop, callback) => {
-                    (subscribers[prop] ??= []).push(callback);
-                };
-                return proxy;
-            };
             this.attachShadow({ mode: 'open', serializable: true });
-            this.state = stateProxy(() => this.render());
             
-            // Check if this is a lazy component (SSR)
-            if (this.getAttribute('as') === 'lazy' && this.shadowRoot.children.length > 0) {
-                return; // Don't re-render if already rendered server-side
-            }
+            this.state = new Proxy({ ...this.is }, {
+                set: (target, key, value) => {
+                    if (target[key] !== value) {
+                        target[key] = value;
+                        if (key !== "subscribe") {
+                            this.render();
+                            this.#internals.setFormValue(jstr(target));
+                        }
+                        (this.subscribers[key] || []).forEach(cb => cb(value));
+                    }
+                    return true;
+                },
+                get: (target, key) => key === 'subscribe' ? 
+                    (prop, cb) => (this.subscribers[prop] ??= []).push(cb) : target[key]
+            });
             
-            this.render();
+            if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render();
         }
 
-        static get observedAttributes() {
-            const keys = Object.entries(initialState).filter(([_, value]) => typeof value !== o).map(([key]) => key);
-            return ["id", "as", ...keys.flatMap(key => [key, key.toLowerCase()])];
-        }
-
-        setElementId(element, id) {
-            element.id = id;
-            addAttribute(element)(['id', id]);
-        }
+        #internals;
 
         attributeChangedCallback(name, oldValue, newValue) {
             if (oldValue === newValue) return;
-            
-            // Handle "as" attribute specially
-            if (name === 'as') {
-                if (newValue !== 'lazy' && oldValue === 'lazy') {
-                    // Re-render if changing from lazy to non-lazy
-                    this.render();
-                }
-                return;
-            }
-            
+            if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render();
             const key = Object.keys(this.is).find(k => k === name || k.toLowerCase() === name);
-            if (key && this.state) {
-                this.state[key] = json(newValue);
-            }
-        }
-
-        triggerEvent(eventName, detail) {
-            const fullEventName = `${tagName}.${eventName}`;
-            this.dispatchEvent(new CustomEvent(fullEventName, { detail, bubbles: true }));
-            this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
-            window.postMessage({ eventName: fullEventName, detail: {
-                sourceId: this.is.id,
-                data: jstr(detail)
-            } }, "*");
+            if (key && this.state) this.state[key] = json(newValue);
         }
 
         render() {
             if (!template) return;
             
-            const trigger = (eventName, detail) => this.triggerEvent(eventName, detail);
-            
-            // Create a special function to access light DOM children
-            const children = (selector) => {
-                if (!selector) return this.lightDOMChildren;
-                return this.lightDOMChildren.filter(child => {
-                    if (typeof selector === 'string') {
-                        return child.tagName?.toLowerCase() === selector.toLowerCase() ||
-                               child.matches?.(selector);
-                    }
-                    return false;
-                });
+            const trigger = (eventName, detail) => {
+                const fullEventName = `${tagName}.${eventName}`;
+                this.dispatchEvent(new CustomEvent(fullEventName, { detail, bubbles: true }));
+                this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
+                window.postMessage({ eventName: fullEventName, detail: { sourceId: this.is.id, data: jstr(detail) } }, "*");
             };
             
-            // Create a function to get child content as pfusch elements
-            const childElements = (selector) => {
-                const matchedChildren = children(selector);
-                return matchedChildren.map(child => toElem(child));
-            };
+            const children = selector => selector ? 
+                this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === selector.toLowerCase() || c.matches?.(selector)) : 
+                this.lightDOMChildren;
             
-            const result = template(this.state, trigger, { children, childElements });
-            
+            const result = template(this.state, trigger, { children, childElements: s => children(s).map(toElem) });
             if (!Array.isArray(result)) return;
             
-            // On first render, set up the basic structure
-            if (!this.initialized) {
-                this.initializeComponent(result, trigger);
-                this.initialized = true;
-                return;
-            }
+            // Simple focus preservation
+            const focused = this.shadowRoot.activeElement;
+            const focusId = focused?.id;
             
-            // On subsequent renders, do a more intelligent update
-            this.updateComponent(result);
-        }
-        
-        initializeComponent(result, trigger) {
-            // Add global pfusch styles
-            const globalStyle = document.getElementById('pfusch-style');
-            if (globalStyle) {
-                const sheet = this.createStyleSheetFromElement(globalStyle);
-                this.shadowRoot.adoptedStyleSheets = [sheet];
-            }
+            // Store styles before clearing
+            const sheets = [...this.shadowRoot.adoptedStyleSheets];
             
-            // Add stylesheets with data-pfusch attribute
-            const pfuschStylesheets = document.querySelectorAll('link[data-pfusch]');
-            pfuschStylesheets.forEach(link => {
-                const linkClone = link.cloneNode(true);
-                this.shadowRoot.appendChild(linkClone);
-            });
-            
-            this.renderItems(result);
-        }
-        
-        updateComponent(result) {
-            // Store detailed focus information before re-rendering
-            let focusInfo = null;
-            
-            // Check both shadow root and document for focused element
-            const shadowFocused = this.shadowRoot.activeElement;
-            const docFocused = document.activeElement;
-            
-            // The focused element might be the shadow host or an element inside
-            let focusedElement = null;
-            if (shadowFocused && shadowFocused !== this) {
-                focusedElement = shadowFocused;
-            } else if (docFocused === this && this.shadowRoot.activeElement) {
-                focusedElement = this.shadowRoot.activeElement;
-            }
-            
-            if (focusedElement) {
-                const isFocusable = (
-                    focusedElement.tagName === 'INPUT' ||
-                    focusedElement.tagName === 'BUTTON' ||
-                    focusedElement.tagName === 'SELECT' ||
-                    focusedElement.tagName === 'TEXTAREA' ||
-                    focusedElement.hasAttribute('tabindex') ||
-                    focusedElement.contentEditable === 'true'
-                );
-                
-                if (isFocusable) {
-                    focusInfo = {
-                        id: focusedElement.id,
-                        tagName: focusedElement.tagName,
-                        value: focusedElement.value,
-                        selectionStart: focusedElement.selectionStart,
-                        selectionEnd: focusedElement.selectionEnd,
-                        // Store additional identifiers in case ID is missing
-                        name: focusedElement.name,
-                        className: focusedElement.className,
-                        placeholder: focusedElement.placeholder,
-                        textContent: focusedElement.textContent?.trim()
-                    };
-                    console.log('Storing focus info:', focusInfo);
-                }
-            }
-            
-            // Clear content but preserve styles/scripts
-            const stylesheets = [...this.shadowRoot.adoptedStyleSheets];
-            const linkElements = Array.from(this.shadowRoot.querySelectorAll('link[data-pfusch]'));
-            
+            // Clear and rebuild
             this.shadowRoot.innerHTML = '';
-            this.shadowRoot.adoptedStyleSheets = stylesheets;
+            this.shadowRoot.adoptedStyleSheets = [];
             
-            // Re-add link elements
-            linkElements.forEach(link => this.shadowRoot.appendChild(link));
+            // Add global styles on first render
+            const globalStyle = document.getElementById('pfusch-style');
+            if (globalStyle && sheets.length === 0) {
+                sheets.unshift(this.createSheet(globalStyle));
+            }
+            this.shadowRoot.adoptedStyleSheets = sheets;
             
-            // Render new content
+            // Add data-pfusch links
+            document.querySelectorAll('link[data-pfusch]').forEach(link => 
+                this.shadowRoot.appendChild(link.cloneNode(true))
+            );
+            
+            // Render content
             this.renderItems(result);
             
-            // Restore focus after a microtask to ensure DOM is ready
-            if (focusInfo) {
-                requestAnimationFrame(() => {
-                    this.restoreFocus(focusInfo);
-                });
-            }
-        }
-        
-        restoreFocus(focusInfo) {
-            let elementToFocus = null;
-            
-            // Try to find element by ID first
-            if (focusInfo.id) {
-                elementToFocus = this.shadowRoot.getElementById(focusInfo.id);
-            }
-            
-            // If not found by ID, try other attributes
-            if (!elementToFocus && focusInfo.name) {
-                elementToFocus = this.shadowRoot.querySelector(`${focusInfo.tagName.toLowerCase()}[name="${focusInfo.name}"]`);
-            }
-            
-            // If still not found, try by placeholder (for inputs)
-            if (!elementToFocus && focusInfo.placeholder) {
-                elementToFocus = this.shadowRoot.querySelector(`${focusInfo.tagName.toLowerCase()}[placeholder="${focusInfo.placeholder}"]`);
-            }
-            
-            // If still not found, try by text content (for buttons)
-            if (!elementToFocus && focusInfo.textContent) {
-                const candidates = this.shadowRoot.querySelectorAll(focusInfo.tagName.toLowerCase());
-                elementToFocus = Array.from(candidates).find(el => 
-                    el.textContent?.trim() === focusInfo.textContent
-                );
-            }
-            
-            // If still not found, try by class
-            if (!elementToFocus && focusInfo.className) {
-                elementToFocus = this.shadowRoot.querySelector(`${focusInfo.tagName.toLowerCase()}.${focusInfo.className.split(' ')[0]}`);
-            }
-            
-            if (elementToFocus) {
-                console.log('Restoring focus to:', elementToFocus);
-                elementToFocus.focus();
-                
-                // Only restore selection, not value (let state management handle value)
-                if ((focusInfo.tagName === 'INPUT' || focusInfo.tagName === 'TEXTAREA') && 
-                    typeof focusInfo.selectionStart === 'number' && 
-                    elementToFocus.value === focusInfo.value) {
-                    // Only restore selection if the value hasn't changed
-                    elementToFocus.setSelectionRange(focusInfo.selectionStart, focusInfo.selectionEnd);
-                }
-            } else {
-                console.log('Could not find element to restore focus to:', focusInfo);
+            // Restore focus
+            if (focusId) {
+                requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
             }
         }
         
         renderItems(items) {
-            if (!Array.isArray(items)) {
-                items = [items];
-            }
-            
-            items.forEach(item => {
+            (Array.isArray(items) ? items : [items]).forEach(item => {
                 if (!item) return;
-                
                 if (item.type === 'style') {
-                    const sheet = item.content();
-                    this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet];
+                    this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, item.content()];
                 } else if (item.type === 'script' && !this.scriptsExecuted) {
-                    // Execute script only once during initialization
                     try {
-                        // Create a context object with component reference
-                        const scriptContext = {
-                            component: this,
-                            shadowRoot: this.shadowRoot,
-                            state: this.state,
+                        item.content.call({
+                            component: this, shadowRoot: this.shadowRoot, state: this.state,
                             addEventListener: this.addEventListener.bind(this),
-                            querySelector: (selector) => this.shadowRoot.querySelector(selector),
-                            querySelectorAll: (selector) => this.shadowRoot.querySelectorAll(selector)
-                        };
-                        item.content.call(scriptContext);
-                    } catch (error) {
-                        console.error('Script execution error:', error);
-                    }
+                            querySelector: s => this.shadowRoot.querySelector(s),
+                            querySelectorAll: s => this.shadowRoot.querySelectorAll(s)
+                        });
+                    } catch (e) { console.error('Script execution error:', e); }
                     this.scriptsExecuted = true;
-                } else if (item instanceof Element) {
-                    this.shadowRoot.appendChild(item.element);
-                } else if (item?.element) {
-                    this.shadowRoot.appendChild(item.element);
+                } else if (item?.element || item instanceof Element) {
+                    this.shadowRoot.appendChild(item.element || item);
                 } else if (Array.isArray(item)) {
                     this.renderItems(item);
                 } else if (typeof item === 'string') {
@@ -466,13 +190,13 @@ export function pfusch(tagName, initialState, template) {
             });
         }
         
-        createStyleSheetFromElement(styleEl) {
+        createSheet(styleEl) {
             const sheet = new CSSStyleSheet();
             sheet.replaceSync(styleEl.textContent || styleEl.innerHTML);
             return sheet;
         }
     }
-
+    
     customElements.define(tagName, Pfusch);
     return Pfusch;
 }
