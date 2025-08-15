@@ -32,7 +32,7 @@ class Element {
         this.element = document.createElement(name);
         this.state = rest[0] || {};
         rest.forEach((item, i) => this.add(item, () => rest.slice(i + 1)));
-        this.element.id ||= `${name.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`;
+        // ID will be assigned by the component's stable ID system if needed
     }
     add(option, ah = () => []) {
         if (!option) return this;
@@ -49,65 +49,85 @@ class Element {
 export const html = new Proxy({}, {
     get: (_, key) => (...args) => {
         if (args[0]?.raw) return new Element(key, str(args[0], ...args.slice(1)));
-        
+
         if (key.includes('-') || customElements.get(key)) {
             const el = document.createElement(key);
             const [attrs, ...children] = args[0] && typeof args[0] === o && !Array.isArray(args[0]) ? args : [{}, ...args];
-            
-            Object.entries(attrs).forEach(([k, v]) => 
+
+            Object.entries(attrs).forEach(([k, v]) =>
                 el[typeof v === 'function' ? 'addEventListener' : 'setAttribute'](k, typeof v === o ? jstr(v) : v)
             );
-            
+
             children.forEach(c => el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c?.element || c));
             return { element: el };
         }
-        
+
         return new Element(key, ...args);
     }
 });
 
 export function pfusch(tagName, initialState, template) {
     if (!template) [template, initialState] = [initialState, {}];
-    
+
     class Pfusch extends HTMLElement {
         static formAssociated = true;
         static observedAttributes = ["id", "as", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase()])];
-        
+
         constructor() {
             super();
             this.#internals = this.attachInternals();
-            this.scriptsExecuted = false;
-            this.subscribers = {};
-            
+            // Bit flags to reduce property bloat:
+            // 1 scriptsExecuted, 2 globalStyleInjected, 4 linksCloned, 8 isRendering, 16 needsRerender, 32 initializing, 64 renderQueued
+            this._f = 32; // start with initializing only
+            this._subs = {};
+            this._ids = new Map();
+
             this.is = { ...initialState };
             for (const [k, v] of Object.entries(initialState)) {
                 const attr = this.getAttribute(k) || this.getAttribute(k.toLowerCase());
                 if (attr !== null) this.is[k] = json(attr);
             }
-            
+
             this.lightDOMChildren = Array.from(this.children);
             this.attachShadow({ mode: 'open', serializable: true });
-            
+
             this.state = new Proxy({ ...this.is }, {
                 set: (target, key, value) => {
                     if (target[key] !== value) {
                         target[key] = value;
-                        if (key !== "subscribe") {
-                            this.render();
+                        if (key !== "subscribe" && !(this._f & 32)) {
+                            this.scheduleRender();
                             this.#internals.setFormValue(jstr(target));
                         }
-                        (this.subscribers[key] || []).forEach(cb => cb(value));
+                        (this._subs[key] || []).forEach(cb => cb(value));
                     }
                     return true;
                 },
-                get: (target, key) => key === 'subscribe' ? 
-                    (prop, cb) => (this.subscribers[prop] ??= []).push(cb) : target[key]
+                get: (target, key) => key === 'subscribe' ?
+                    (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : target[key]
             });
-            
-            if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render();
+            // Initial render will occur in connectedCallback after attributes are applied.
+        }
+
+        connectedCallback() {
+            if (this._f & 32) { // initializing
+                this._f &= ~32;
+                if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render();
+            }
+        }
+
+        disconnectedCallback() {
+            // Allow scripts to listen for cleanup
+            this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));
         }
 
         #internals;
+
+        getStableId(tagName, position) {
+            const sig = `${tagName}-${position}`;
+            if (!this._ids.has(sig)) this._ids.set(sig, `${tagName.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`);
+            return this._ids.get(sig);
+        }
 
         attributeChangedCallback(name, oldValue, newValue) {
             if (oldValue === newValue) return;
@@ -118,85 +138,144 @@ export function pfusch(tagName, initialState, template) {
 
         render() {
             if (!template) return;
-            
+            if (this._f & 8) { // already rendering
+                this._f |= 16;
+                return;
+            }
+            this._f |= 8;
+
             const trigger = (eventName, detail) => {
                 const fullEventName = `${tagName}.${eventName}`;
                 this.dispatchEvent(new CustomEvent(fullEventName, { detail, bubbles: true }));
                 this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
                 window.postMessage({ eventName: fullEventName, detail: { sourceId: this.is.id, data: jstr(detail) } }, "*");
             };
-            
-            const children = selector => selector ? 
-                this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === selector.toLowerCase() || c.matches?.(selector)) : 
+
+            const children = selector => selector ?
+                this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === selector.toLowerCase() || c.matches?.(selector)) :
                 this.lightDOMChildren;
-            
+
             const result = template(this.state, trigger, { children, childElements: s => children(s).map(toElem) });
             if (!Array.isArray(result)) return;
-            
-            // Simple focus preservation
+            // Focus preservation
             const focused = this.shadowRoot.activeElement;
             const focusId = focused?.id;
-            
-            // Store styles before clearing
-            const sheets = [...this.shadowRoot.adoptedStyleSheets];
-            
-            // Clear and rebuild
-            this.shadowRoot.innerHTML = '';
-            this.shadowRoot.adoptedStyleSheets = [];
-            
-            // Add global styles on first render
-            const globalStyle = document.getElementById('pfusch-style');
-            if (globalStyle && sheets.length === 0) {
-                sheets.unshift(this.createSheet(globalStyle));
+
+            if (!(this._f & 2)) { // global style inject once
+                const gs = document.getElementById('pfusch-style');
+                if (gs) { const sh = new CSSStyleSheet(); sh.replaceSync(gs.textContent || gs.innerHTML); this.shadowRoot.adoptedStyleSheets = [sh, ...this.shadowRoot.adoptedStyleSheets]; }
+                this._f |= 2;
             }
-            this.shadowRoot.adoptedStyleSheets = sheets;
-            
-            // Add data-pfusch links
-            document.querySelectorAll('link[data-pfusch]').forEach(link => 
-                this.shadowRoot.appendChild(link.cloneNode(true))
-            );
-            
-            // Render content
-            this.renderItems(result);
-            
-            // Restore focus
+
+            // Clone data-pfusch links once
+            if (!(this._f & 4)) {
+                document.querySelectorAll('link[data-pfusch]').forEach(link =>
+                    this.shadowRoot.appendChild(link.cloneNode(true))
+                );
+                this._f |= 4;
+            }
+
+            // Collect element items (exclude style/script for diffing)
+            const elementItems = [];
+            this._pos = 0;
+            result.forEach(item => {
+                if (!item) return;
+                if (item.type === 'style') {
+                    const sheet = item.content();
+                    if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) {
+                        this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet];
+                    }
+                } else if (item.type === 'script') {
+                    if (!(this._f & 1)) {
+                        try {
+                            item.content.call({
+                                component: this, shadowRoot: this.shadowRoot, state: this.state,
+                                addEventListener: this.addEventListener.bind(this),
+                                querySelector: s => this.shadowRoot.querySelector(s),
+                                querySelectorAll: s => this.shadowRoot.querySelectorAll(s)
+                            });
+                        } catch (e) { console.error('Script execution error:', e); }
+                        this._f |= 1;
+                    }
+                } else {
+                    const pushEl = el => { if (!el.id) el.id = this.getStableId(el.tagName, this._pos++); elementItems.push(el); };
+                    if (Array.isArray(item)) {
+                        item.forEach(i => {
+                            if (!i) return;
+                            if (i?.element || i instanceof Element) pushEl(i.element || i);
+                            else if (typeof i === 'string') { const span = document.createElement('span'); span.textContent = i; pushEl(span); }
+                        });
+                    } else if (item?.element || item instanceof Element) {
+                        pushEl(item.element || item);
+                    } else if (typeof item === 'string') {
+                        const span = document.createElement('span'); span.textContent = item; pushEl(span);
+                    }
+                }
+            });
+
+            // Diff/patch shadowRoot children (excluding link elements added earlier)
+            this.syncChildren(this.shadowRoot, elementItems.filter(e => e.tagName !== 'LINK'));
+
+            // Restore focus if possible
             if (focusId) {
                 requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
             }
+
+            this._f &= ~8;                // clear rendering
+            if (this._f & 64) this._f &= ~64; // clear queued flag
+            if (this._f & 16) {            // needs rerender?
+                this._f &= ~16;
+                this.render();             // apply queued state changes
+            }
         }
-        
-        renderItems(items) {
-            (Array.isArray(items) ? items : [items]).forEach(item => {
-                if (!item) return;
-                if (item.type === 'style') {
-                    this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, item.content()];
-                } else if (item.type === 'script' && !this.scriptsExecuted) {
-                    try {
-                        item.content.call({
-                            component: this, shadowRoot: this.shadowRoot, state: this.state,
-                            addEventListener: this.addEventListener.bind(this),
-                            querySelector: s => this.shadowRoot.querySelector(s),
-                            querySelectorAll: s => this.shadowRoot.querySelectorAll(s)
-                        });
-                    } catch (e) { console.error('Script execution error:', e); }
-                    this.scriptsExecuted = true;
-                } else if (item?.element || item instanceof Element) {
-                    this.shadowRoot.appendChild(item.element || item);
-                } else if (Array.isArray(item)) {
-                    this.renderItems(item);
-                } else if (typeof item === 'string') {
-                    this.shadowRoot.appendChild(document.createTextNode(item));
-                }
+
+        scheduleRender() {
+            // Batch multiple state changes in same tick & avoid mid-event input value clobbering
+            if (this._f & 8) { this._f |= 16; return; }
+            if (this._f & 64) return;
+            this._f |= 64;
+            queueMicrotask(() => {
+                if (!(this._f & 64)) return; // already rendered
+                if (this._f & 8) { this._f |= 16; return; }
+                this.render();
             });
         }
-        
-        createSheet(styleEl) {
-            const sheet = new CSSStyleSheet();
-            sheet.replaceSync(styleEl.textContent || styleEl.innerHTML);
-            return sheet;
+
+        syncChildren(parent, newChildren) {
+            const old = Array.from(parent.children).filter(c => c.getAttribute('data-pfusch') === null);
+            const byId = new Map(old.map(c => [c.id, c]));
+            const keep = new Set();
+            const props = ['checked', 'selected', 'disabled', 'readonly', 'multiple'];
+            const upd = (o, n) => {
+                if (o.tagName !== n.tagName) { o.replaceWith(n); return; }
+                for (const a of n.attributes) { if (o.getAttribute(a.name) !== a.value) o.setAttribute(a.name, a.value); }
+                for (const a of Array.from(o.attributes)) { if (a.name !== 'id' && !n.hasAttribute(a.name)) o.removeAttribute(a.name); }
+                for (const p of props) { if (n[p] !== undefined && n[p] !== o[p]) { try { o[p] = n[p]; } catch { } } }
+                if ('value' in n) {
+                    const isIn = /^(INPUT|TEXTAREA|SELECT)$/.test(n.tagName);
+                    const explicit = n.hasAttribute && n.hasAttribute('value');
+                    const active = document.activeElement === o || o.contains(document.activeElement);
+                    if ((explicit || !isIn) && n.value !== o.value && !active) { try { o.value = n.value; } catch { } }
+                }
+                const oc = Array.from(o.children), nc = Array.from(n.children);
+                if (!nc.length && !oc.length) { if (o.textContent !== n.textContent) o.textContent = n.textContent; return; }
+                nc.forEach((c, i) => {
+                    let ex = oc[i];
+                    if (!c.id) c.id = ex?.id || this.getStableId(c.tagName, i);
+                    if (ex) upd(ex, c); else o.appendChild(c);
+                });
+                if (oc.length > nc.length) oc.slice(nc.length).forEach(e => e.remove());
+            };
+            newChildren.forEach(n => {
+                const ex = n.id && byId.get(n.id);
+                if (ex) { upd(ex, n); keep.add(ex.id); } else { parent.appendChild(n); keep.add(n.id); }
+            });
+            old.forEach(c => { if (!keep.has(c.id)) c.remove(); });
+            // Reorder to match newChildren
+            let prev = null; newChildren.forEach(n => { const node = (n.id && byId.get(n.id)) || n; if (!node.parentNode) return; if (!prev) { if (parent.firstElementChild !== node) parent.insertBefore(node, parent.firstElementChild); } else if (prev.nextElementSibling !== node) { parent.insertBefore(node, prev.nextElementSibling); } prev = node; });
         }
     }
-    
+
     customElements.define(tagName, Pfusch);
     return Pfusch;
 }

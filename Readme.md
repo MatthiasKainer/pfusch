@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-202-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-4.5K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-1.9K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-202-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-6.7K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-2.7K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -73,7 +73,7 @@ pfusch(
   "table-wrapper",
   { url: "/example/items.json", items: [], selectedId: null },
   (state) => [
-    script(async () => {
+    script(async function () { // always use `function` to access `this` in the script
       state.items = await fetch(`${state.url}`).then((response) =>
         response.json()
       );
@@ -239,7 +239,7 @@ But this time you far more control on the layout and the content of the componen
 
 ```html
 <div>
-  <hello-world who="me!" as="lazy">
+  <hello-world who="me!">
     <template shadowrootmode="open">
       <h2>Hello <span id="who">me!</span>!</h2>
     </template>
@@ -248,7 +248,7 @@ But this time you far more control on the layout and the content of the componen
 </div>
 ```
 
-which, once you add the script and maybe change the attribute to `who="world"`, will update to show `Hello world!`. The `as="lazy"` attribute tells the component to only update the component if the initial state changes (in this case, `me!`), avoiding any flickering.
+which, once you add the script and maybe change the attribute to `who="world"`, will update to show `Hello world!`.
 
 If state is updated, either inside the component or via an attribute change, the value will change. State changes are one-directional, so changing the state inside the component will not change the attribute. If you want to bubble up, do it via event. The easiest way for that is the `trigger` function that is passed as second argument after the state:
 

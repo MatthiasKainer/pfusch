@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Comprehensive Pfusch Example</title>
     <style id="pfusch-style">
@@ -8,6 +9,7 @@
             margin: 0;
             padding: 0;
         }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #222;
@@ -19,15 +21,18 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #f8fafc 0%, #e3e9f7 100%);
         }
+
         body.bg-incremented {
             background: linear-gradient(135deg, #e7f3ff 0%, #cce4ff 100%);
         }
+
         body.bg-decremented {
             background: linear-gradient(135deg, #ffe7e7 0%, #ffcccc 100%);
         }
+
         .main-card {
             background: #fff;
-            box-shadow: 0 6px 32px 0 rgba(60,72,100,0.10), 0 1.5px 6px 0 rgba(60,72,100,0.08);
+            box-shadow: 0 6px 32px 0 rgba(60, 72, 100, 0.10), 0 1.5px 6px 0 rgba(60, 72, 100, 0.08);
             border-radius: 18px;
             padding: 36px 32px 32px 32px;
             margin: 40px 0 40px 0;
@@ -35,6 +40,7 @@
             width: 100%;
             min-width: 320px;
         }
+
         h1 {
             font-size: 2.5rem;
             font-weight: 700;
@@ -43,12 +49,14 @@
             color: #2d3a4a;
             text-align: center;
         }
+
         p {
             text-align: center;
             color: #5a6a85;
             font-size: 1.15rem;
             margin-bottom: 2.5em;
         }
+
         .highlight {
             background-color: #fffbe6;
             border: 1px solid #ffeaa7;
@@ -56,6 +64,7 @@
             border-radius: 6px;
             margin: 12px 0;
         }
+
         .error {
             color: #dc3545;
             background-color: #f8d7da;
@@ -63,43 +72,82 @@
             padding: 12px 16px;
             border-radius: 6px;
         }
+
         form {
             max-width: 500px;
             margin: 0 auto;
         }
+
         input:invalid:focus {
             animation: shake 0.5s ease-in-out;
         }
+
         @keyframes shake {
-            0%, 20%, 40%, 60%, 80% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+
+            0%,
+            20%,
+            40%,
+            60%,
+            80% {
+                transform: translateX(0);
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                transform: translateX(-2px);
+            }
         }
+
         button:focus {
             outline: 2px solid #007bff;
             outline-offset: 2px;
         }
+
         input:focus {
             position: relative;
             z-index: 1;
         }
+
         /* Add a subtle fade-in for the card */
         .main-card {
-            animation: fadeInCard 0.7s cubic-bezier(.4,0,.2,1);
+            animation: fadeInCard 0.7s cubic-bezier(.4, 0, .2, 1);
         }
+
         @keyframes fadeInCard {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         /* Responsive tweaks */
         @media (max-width: 900px) {
-            .main-card { max-width: 98vw; padding: 18px 4vw 24px 4vw; }
+            .main-card {
+                max-width: 98vw;
+                padding: 18px 4vw 24px 4vw;
+            }
         }
+
         @media (max-width: 600px) {
-            .main-card { padding: 10px 2vw 16px 2vw; }
-            h1 { font-size: 2rem; }
+            .main-card {
+                padding: 10px 2vw 16px 2vw;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="main-card">
         <h1>Pfusch</h1>
@@ -109,11 +157,23 @@
             <tab-content tab="hello" title="Hello World">
                 <hello-world who="Universe"></hello-world>
             </tab-content>
-            
+
             <tab-content tab="counter" title="Counter">
-                <my-counter count="10"></my-counter>
+                <my-counter count="10">
+                    Simple Counter Component with global effect
+                </my-counter>
+                <div style="border: 1px solid #eee; padding: 12px; border-radius: 6px; margin-top: 12px;">
+                    <event-counter>
+                        Event-driven Counter Component - Control
+                    </event-counter>
+                    <counter-display eventIncrement="event-counter.increment" eventDecrement="event-counter.decrement"
+                        eventReset="event-counter.reset">
+                        Event-driven Counter Component - Display
+                    </counter-display>
+                </div>
             </tab-content>
-            
+
+
             <tab-content tab="forms" title="Forms">
                 <form-validator>
                     <form id="test-form">
@@ -123,11 +183,12 @@
                     </form>
                 </form-validator>
             </tab-content>
-            
+
             <tab-content tab="todo" title="Todo App">
-                <todo-app todos="[{&quot;id&quot;:1,&quot;text&quot;:&quot;Learn pfusch&quot;,&quot;completed&quot;:false},{&quot;id&quot;:2,&quot;text&quot;:&quot;Learn JavaScript &quot;,&quot;completed&quot;:true},{&quot;id&quot;:3,&quot;text&quot;:&quot;Learn html&quot;,&quot;completed&quot;:true}]"></todo-app>
+                <todo-app
+                    todos="[{&quot;id&quot;:1,&quot;text&quot;:&quot;Learn pfusch&quot;,&quot;completed&quot;:false},{&quot;id&quot;:2,&quot;text&quot;:&quot;Learn JavaScript &quot;,&quot;completed&quot;:true},{&quot;id&quot;:3,&quot;text&quot;:&quot;Learn html&quot;,&quot;completed&quot;:true}]"></todo-app>
             </tab-content>
-            
+
             <tab-content tab="table" title="Progressive Enhancement">
                 <enhanced-table>
                     <table>
@@ -139,8 +200,8 @@
                         </thead>
                         <tbody id="table-content">
                             <tr>
-                                <td>Loading...</td>
-                                <td>...</td>
+                                <td>Waiting</td>
+                                <td>for data...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -205,7 +266,7 @@
             script(() => {
                 // Get tab content elements from light DOM
                 const tabContents = children('tab-content');
-                
+
                 // Only initialize tabs if they haven't been set yet
                 if (state.tabs.length === 0) {
                     const newTabs = tabContents.map(content => ({
@@ -213,16 +274,16 @@
                         title: content.getAttribute('title'),
                         element: content
                     }));
-                    
+
                     // Use Object.assign to avoid triggering reactivity during initialization
                     Object.assign(state, { tabs: newTabs });
-                    
+
                     // Set initial active tab if not set
                     if (!state.activeTab && newTabs.length > 0) {
                         Object.assign(state, { activeTab: newTabs[0].id });
                     }
                 }
-                
+
                 // Function to update tab visibility
                 const updateTabVisibility = (activeTabId) => {
                     state.tabs.forEach(tab => {
@@ -233,16 +294,16 @@
                         }
                     });
                 };
-                
+
                 // Subscribe to activeTab changes to update visibility
                 state.subscribe('activeTab', updateTabVisibility);
-                
+
                 // Initial visibility update
                 updateTabVisibility(state.activeTab);
             }),
             state.tabs?.length > 0 ? html.div({ id: "tab-container", class: "tab-container" },
                 html.div({ class: "tab-nav" },
-                    ...state.tabs.map(tab => 
+                    ...state.tabs.map(tab =>
                         html.button({
                             id: `tab-btn-${tab.id}`,
                             class: `tab-button ${state.activeTab === tab.id ? 'active' : ''}`,
@@ -304,22 +365,23 @@
                 }
             `,
             html.div({ class: "counter-container" },
+                html.h3(html.slot()),
                 html.div({ class: "count-display" }, `Count: ${state.count}`),
-                html.button({ 
+                html.button({
                     id: "increment-btn",
                     click: () => {
                         state.count++;
                         trigger("incremented", { newValue: state.count });
                     }
                 }, "Increment"),
-                html.button({ 
+                html.button({
                     id: "decrement-btn",
                     click: () => {
                         state.count--;
                         trigger("decremented", { newValue: state.count });
                     }
                 }, "Decrement"),
-                html.button({ 
+                html.button({
                     id: "reset-btn",
                     click: () => {
                         state.count = 0;
@@ -329,14 +391,108 @@
             )
         ]);
 
+
+        // 2b. Event-driven counter: event-counter (buttons) and counter-display (display)
+        pfusch("event-counter", {}, (state, trigger) => [
+            css`
+                .event-counter-container {
+                    border: 2px solid #28a745;
+                    padding: 20px;
+                    border-radius: 8px;
+                    text-align: center;
+                    margin: 20px 0;
+                }
+                button {
+                    background: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    margin: 0 5px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                }
+                button:hover {
+                    background: #218838;
+                }
+                button:active {
+                    transform: translateY(1px);
+                }
+            `,
+            html.div({ class: "event-counter-container" },
+                html.h3(html.slot()),
+                html.button({
+                    id: "event-increment-btn",
+                    click: () => {
+                        window.dispatchEvent(new CustomEvent("event-counter.increment"));
+                    }
+                }, "Increment"),
+                html.button({
+                    id: "event-decrement-btn",
+                    click: () => {
+                        window.dispatchEvent(new CustomEvent("event-counter.decrement"));
+                    }
+                }, "Decrement"),
+                html.button({
+                    id: "event-reset-btn",
+                    click: () => {
+                        window.dispatchEvent(new CustomEvent("event-counter.reset"));
+                    }
+                }, "Reset")
+            )
+        ]);
+
+        pfusch("counter-display", {
+            count: 0,
+            eventIncrement: ".increment",
+            eventDecrement: ".decrement",
+            eventReset: ".reset"
+        }, (state) => [
+            css`
+                .counter-display-container {
+                    border: 2px dashed #28a745;
+                    padding: 20px;
+                    border-radius: 8px;
+                    text-align: center;
+                    margin: 20px 0;
+                }
+                .count-value {
+                    font-size: 32px;
+                    font-weight: bold;
+                    color: #28a745;
+                    margin: 15px 0;
+                }
+            `,
+            script(function () {
+                // Listen for events on window
+                this._inc = () => { state.count++;; };
+                this._dec = () => { state.count--; };
+                this._reset = () => { state.count = 0; };
+                window.addEventListener(state.eventIncrement, this._inc);
+                window.addEventListener(state.eventDecrement, this._dec);
+                window.addEventListener(state.eventReset, this._reset);
+                // Clean up listeners on disconnect
+                this.component.addEventListener("disconnected", () => {
+                    window.removeEventListener(state.eventIncrement, this._inc);
+                    window.removeEventListener(state.eventDecrement, this._dec);
+                    window.removeEventListener(state.eventReset, this._reset);
+                });
+            }),
+            html.div({ class: "counter-display-container" },
+                html.h3(html.slot()),
+                html.div({ class: "count-value" }, `Count: ${state.count}`)
+            )
+        ]);
+
+
         // 3. Form input component with live character counter and proper validation
-        pfusch("my-input", { 
-            name: "", 
-            placeholder: "", 
-            value: "", 
-            type: "text", 
-            maxLength: 50, 
-            required: false, 
+        pfusch("my-input", {
+            name: "",
+            placeholder: "",
+            value: "",
+            type: "text",
+            maxLength: 50,
+            required: false,
             errorMessage: "",
             isValid: true,
             hasBlurred: false
@@ -400,16 +556,16 @@
                     margin-top: 4px;
                 }
             `,
-            script(function() {
+            script(function () {
                 let inputElement = null;
                 // Use the component context provided by the script execution
                 const componentContext = this.component;
-                
+
                 // Enhanced validation function
                 const validateInput = (value = state.value, showErrors = state.hasBlurred) => {
                     let errorMessage = '';
                     let isValid = true;
-                    
+
                     // Required field validation
                     if (state.required && (!value || value.trim() === '')) {
                         errorMessage = 'This field is required';
@@ -425,15 +581,15 @@
                         errorMessage = `Maximum ${state.maxLength} characters allowed`;
                         isValid = false;
                     }
-                    
+
                     // Only show error message if the user has interacted with the field
                     state.errorMessage = showErrors ? errorMessage : '';
                     state.isValid = isValid;
-                    
+
                     // Set custom validity for native browser tooltips
                     if (inputElement) {
                         inputElement.setCustomValidity(errorMessage);
-                        
+
                         // Add visual classes based on validation state
                         inputElement.classList.remove('custom-valid', 'custom-invalid');
                         if (showErrors) {
@@ -444,28 +600,28 @@
                             }
                         }
                     }
-                    
+
                     // Trigger validation event for form-level handling
-                    trigger('validation', { 
-                        name: state.name, 
-                        isValid, 
-                        errorMessage, 
-                        value 
+                    trigger('validation', {
+                        name: state.name,
+                        isValid,
+                        errorMessage,
+                        value
                     });
-                    
+
                     return isValid;
                 };
-                
+
                 // Subscribe to value changes for real-time validation
                 state.subscribe('value', (newValue) => {
                     validateInput(newValue, state.hasBlurred);
                 });
-                
+
                 // Subscribe to required changes
                 state.subscribe('required', () => {
                     validateInput(state.value, state.hasBlurred);
                 });
-                
+
                 // Store reference to input element for validation
                 setTimeout(() => {
                     if (componentContext && componentContext.shadowRoot) {
@@ -507,24 +663,23 @@
                         e.target.classList.remove('custom-invalid');
                     }
                 }),
-                html.div({ 
+                html.div({
                     id: `counter-${state.name}`,
-                    class: `char-counter ${
-                        state.value.length > state.maxLength ? 'over-limit' :
-                        state.value.length > state.maxLength * 0.8 ? 'warning' : ''
-                    }` 
+                    class: `char-counter ${state.value.length > state.maxLength ? 'over-limit' :
+                            state.value.length > state.maxLength * 0.8 ? 'warning' : ''
+                        }`
                 }, `${state.value.length}/${state.maxLength} characters`),
-                state.errorMessage ? 
-                    html.div({ class: "error-message" }, state.errorMessage) : 
-                    (state.isValid && state.value && state.hasBlurred ? 
+                state.errorMessage ?
+                    html.div({ class: "error-message" }, state.errorMessage) :
+                    (state.isValid && state.value && state.hasBlurred ?
                         html.div({ class: "valid-message" }, "✓ Valid") : null)
             )
         ]);
 
         // Form validator component to manage form-level validation
-        pfusch("form-validator", { 
+        pfusch("form-validator", {
             fieldStates: new Map(),
-            isFormValid: false 
+            isFormValid: false
         }, (state, trigger, { children }) => [
             css`
                 .form-container {
@@ -569,23 +724,23 @@
                     border: 1px solid #a3cfbb;
                 }
             `,
-            script(function() {
+            script(function () {
                 // Use the component context provided by the script execution
                 const componentContext = this.component;
-                
+
                 // Listen for validation events from child inputs
                 componentContext.addEventListener('my-input.validation', (e) => {
                     const { name, isValid, errorMessage, value } = e.detail;
-                    
+
                     // Update field state
                     state.fieldStates.set(name, { isValid, errorMessage, value, hasValue: !!value });
-                    
+
                     // Check overall form validity
                     const allValid = Array.from(state.fieldStates.values()).every(field => field.isValid);
                     const hasRequiredFields = Array.from(state.fieldStates.values()).some(field => field.hasValue);
-                    
+
                     state.isFormValid = allValid && hasRequiredFields;
-                    
+
                     // Update submit button state
                     setTimeout(() => {
                         if (componentContext && componentContext.shadowRoot) {
@@ -596,7 +751,7 @@
                         }
                     }, 0);
                 });
-                
+
                 // Initial state - disable submit button
                 setTimeout(() => {
                     if (componentContext && componentContext.shadowRoot) {
@@ -609,11 +764,11 @@
             }),
             html.div({ class: "form-container" },
                 html.slot(),
-                state.fieldStates.size > 0 && !state.isFormValid ? 
-                    html.div({ class: "form-status invalid" }, 
-                        "Please fix validation errors before submitting") : 
-                    (state.isFormValid ? 
-                        html.div({ class: "form-status valid" }, 
+                state.fieldStates.size > 0 && !state.isFormValid ?
+                    html.div({ class: "form-status invalid" },
+                        "Please fix validation errors before submitting") :
+                    (state.isFormValid ?
+                        html.div({ class: "form-status valid" },
                             "✓ Form is ready to submit") : null)
             )
         ]);
@@ -644,7 +799,7 @@
                     cursor: pointer;
                 }
             `,
-            html.div({ 
+            html.div({
                 class: `todo-item ${state.completed ? 'completed' : ''}`,
                 id: `todo-${state.id}`
             },
@@ -697,18 +852,8 @@
                 }
             `,
             script(() => {
-                // Validate todos when loaded from attributes
                 state.subscribe('todos', (newTodos) => {
                     if (Array.isArray(newTodos) && newTodos.length > 0) {
-                        // Check if any todo is missing an id
-                        const missingIds = newTodos.filter(todo => !todo.id);
-                        if (missingIds.length > 0) {
-                            console.error('Todo app: All todos must have an "id" property when passed as attributes');
-                            console.error('Missing IDs in todos:', missingIds);
-                            throw new Error(`Todo app: ${missingIds.length} todo(s) missing required "id" property`);
-                        }
-                        
-                        // Update nextId to be higher than any existing ID
                         const maxId = Math.max(...newTodos.map(todo => todo.id));
                         if (maxId >= state.nextId) {
                             state.nextId = maxId + 1;
@@ -736,9 +881,9 @@
                     })
                 ),
                 html.div({ class: "todo-list" },
-                    state.todos.length === 0 
+                    state.todos.length === 0
                         ? html.div({ class: "empty-state" }, "No todos yet. Add one above!")
-                        : state.todos.map(todo => 
+                        : state.todos.map(todo =>
                             html["todo-item"]({
                                 ...todo,
                                 "todo-item.toggle": (e) => {
@@ -759,23 +904,66 @@
         ]);
 
         // 5. Progressive enhancement example
-        pfusch("enhanced-table", { data: [] }, (state) => [
-            script(async () => {
+        pfusch("enhanced-table", { data: [], loadTriggered: false }, (state) => [
+            css`
+                :host {
+                    display: block;    tbody
+                    margin: 20px;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                th, td {
+                    padding: 12px;
+                    text-align: left;
+                    border-bottom: 1px solid #ddd;
+                }
+                th {
+                    background-color: #f8f9fa;
+                }
+                tr:hover {
+                    background-color: #f1f1f1;
+                }
+            `,
+            script(async function () {
                 // Simulate loading data
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                state.data = [
-                    { name: "Component 1", status: "Active" },
-                    { name: "Component 2", status: "Inactive" },
-                    { name: "Component 3", status: "Pending" }
-                ];
+                state.subscribe('loadTriggered', async () => {
+                    // Simulate an API call to fetch data
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    state.data = [
+                        { name: "Component 1", status: "Active" },
+                        { name: "Component 2", status: "Inactive" },
+                        { name: "Component 3", status: "Pending" }
+                    ];
+                });
+                state.subscribe('data', (newData) => {
+                    const tbody = this.component.querySelector('tbody');
+                    if (tbody) {
+                        tbody.innerHTML = "";
+                        state.data.forEach(item =>
+                            tbody.appendChild(html.tr(
+                                { class: item.status.toLowerCase() },
+                                html.td(item.name),
+                                html.td(item.status)
+                            ).element)
+                        );
+                    }
+                });
             }),
-            html.tbody({ id: "table-content" },
-                ...state.data.map(item => 
-                    html.tr(
-                        html.td(item.name),
-                        html.td(item.status)
-                    )
-                )
+            html.slot(),
+            state.loadTriggered ? null : html.div({ class: "load-button" },
+                html.button({
+                    id: "load-data-btn",
+                    click: (e) => {
+                        state.loadTriggered = true;
+                    }
+                }, "Load Data")
             )
         ]);
 
@@ -801,15 +989,15 @@
         document.addEventListener('submit', (e) => {
             if (e.target.id === 'test-form') {
                 e.preventDefault();
-                
+
                 // Get the form validator component
                 const formValidator = e.target.closest('form-validator');
-                
+
                 if (!formValidator || !formValidator.state.isFormValid) {
                     // Show native validation messages for any invalid fields
                     const customInputs = e.target.querySelectorAll('my-input');
                     let firstInvalidField = null;
-                    
+
                     customInputs.forEach(input => {
                         const shadowInput = input.shadowRoot.querySelector('input');
                         if (shadowInput && !shadowInput.checkValidity()) {
@@ -820,37 +1008,37 @@
                             shadowInput.reportValidity();
                         }
                     });
-                    
+
                     // Focus the first invalid field
                     if (firstInvalidField) {
                         firstInvalidField.focus();
                     }
-                    
+
                     return;
                 }
-                
+
                 // Form is valid, collect data and submit
                 const customInputs = e.target.querySelectorAll('my-input');
                 const formData = {};
-                
+
                 customInputs.forEach(input => {
                     const name = input.getAttribute('name');
                     const value = input.state ? input.state.value : '';
                     formData[name] = value;
                 });
-                
+
                 console.log('Form submitted successfully:', formData);
-                
+
                 // Show success message
                 const submitButton = e.target.querySelector('button[type="submit"]');
                 const originalText = submitButton.textContent;
                 submitButton.textContent = '✓ Submitted!';
                 submitButton.disabled = true;
-                
+
                 setTimeout(() => {
                     submitButton.textContent = originalText;
                     submitButton.disabled = false;
-                    
+
                     // Optional: Clear form
                     customInputs.forEach(input => {
                         if (input.state) {
@@ -864,4 +1052,5 @@
         });
     </script>
 </body>
+
 </html>
