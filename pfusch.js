@@ -48,21 +48,27 @@ class Element {
 
 export const html = new Proxy({}, {
     get: (_, key) => (...args) => {
-        if (args[0]?.raw) return new Element(key, str(args[0], ...args.slice(1)));
+            if (key === 'raw') {
+                // html.raw(content) will return an object that sets innerHTML
+                return (content) => ({
+                    element: Object.assign(document.createElement('span'), { innerHTML: content })
+                });
+            }
+            if (args[0]?.raw) return new Element(key, str(args[0], ...args.slice(1)));
 
-        if (key.includes('-') || customElements.get(key)) {
-            const el = document.createElement(key);
-            const [attrs, ...children] = args[0] && typeof args[0] === o && !Array.isArray(args[0]) ? args : [{}, ...args];
+            if (key.includes('-') || customElements.get(key)) {
+                const el = document.createElement(key);
+                const [attrs, ...children] = args[0] && typeof args[0] === o && !Array.isArray(args[0]) ? args : [{}, ...args];
 
-            Object.entries(attrs).forEach(([k, v]) =>
-                el[typeof v === 'function' ? 'addEventListener' : 'setAttribute'](k, typeof v === o ? jstr(v) : v)
-            );
+                Object.entries(attrs).forEach(([k, v]) =>
+                    el[typeof v === 'function' ? 'addEventListener' : 'setAttribute'](k, typeof v === o ? jstr(v) : v)
+                );
 
-            children.forEach(c => el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c?.element || c));
-            return { element: el };
-        }
+                children.forEach(c => el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c?.element || c));
+                return { element: el };
+            }
 
-        return new Element(key, ...args);
+            return new Element(key, ...args);
     }
 });
 
