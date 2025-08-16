@@ -54,7 +54,6 @@ export const html = new Proxy({}, {
                     element: Object.assign(document.createElement('span'), { innerHTML: content })
                 });
             }
-            if (args[0]?.raw) return new Element(key, str(args[0], ...args.slice(1)));
 
             if (key.includes('-') || customElements.get(key)) {
                 const el = document.createElement(key);
