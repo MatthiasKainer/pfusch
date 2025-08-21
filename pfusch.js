@@ -76,7 +76,7 @@ export function pfusch(tagName, initialState, template) {
 
     class Pfusch extends HTMLElement {
         static formAssociated = true;
-        static observedAttributes = ["id", "as", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase()])];
+        static observedAttributes = ["id", "as", "inject-styles", "inject-links", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase()])];
 
         constructor() {
             super();
@@ -94,6 +94,11 @@ export function pfusch(tagName, initialState, template) {
             }
 
             this.lightDOMChildren = Array.from(this.children);
+            // Include descendants with ids for deeper hydration (e.g., form controls inside wrapper)
+            const descendantsWithId = this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []));
+            const all = [...this.lightDOMChildren, ...descendantsWithId];
+            this._lightById = new Map(all.filter(c => c.id).map(c => [c.id, c]));
+            this._hydrating = true; // allow adoption during first render
             this.attachShadow({ mode: 'open', serializable: true });
 
             this.state = new Proxy({ ...this.is }, {
@@ -167,14 +172,14 @@ export function pfusch(tagName, initialState, template) {
             const focusId = focused?.id;
 
             if (!(this._f & 2)) { // global style inject once
-                const gs = document.getElementById('pfusch-style');
-                if (gs) { const sh = new CSSStyleSheet(); sh.replaceSync(gs.textContent || gs.innerHTML); this.shadowRoot.adoptedStyleSheets = [sh, ...this.shadowRoot.adoptedStyleSheets]; }
+                const gs = [...document.querySelectorAll(this.getAttribute("inject-styles") || "style[data-pfusch]")];
+                if (gs) { const sh = new CSSStyleSheet(); sh.replaceSync(gs.map(g => g.textContent || g.innerHTML).join("\n")); this.shadowRoot.adoptedStyleSheets = [sh, ...this.shadowRoot.adoptedStyleSheets]; }
                 this._f |= 2;
             }
 
             // Clone data-pfusch links once
             if (!(this._f & 4)) {
-                document.querySelectorAll('link[data-pfusch]').forEach(link =>
+                document.querySelectorAll(this.getAttribute("inject-links") || "link[data-pfusch]").forEach(link =>
                     this.shadowRoot.appendChild(link.cloneNode(true))
                 );
                 this._f |= 4;
@@ -203,7 +208,31 @@ export function pfusch(tagName, initialState, template) {
                         this._f |= 1;
                     }
                 } else {
-                    const pushEl = el => { if (!el.id) el.id = this.getStableId(el.tagName, this._pos++); elementItems.push(el); };
+                    const mergeFromOriginal = (tplNode) => {
+                        if (!this._lightById) return;
+                        const orig = tplNode.id && this._lightById.get(tplNode.id);
+                        if (orig && orig.tagName === tplNode.tagName) {
+                            // Merge attributes: template wins, but retain originals not specified (to keep classes etc.)
+                            const tplAttrNames = new Set(Array.from(tplNode.attributes).map(a => a.name));
+                            // Add original attributes missing from template
+                            Array.from(orig.attributes).forEach(a => { if (!tplAttrNames.has(a.name)) tplNode.setAttribute(a.name, a.value); });
+                            // Special handling for class: union
+                            if (orig.classList.length) {
+                                orig.classList.forEach(cls => tplNode.classList.add(cls));
+                            }
+                            // Preserve current input value if template didn't specify value attribute
+                            if (orig instanceof HTMLInputElement || orig instanceof HTMLTextAreaElement) {
+                                if (!tplNode.hasAttribute('value') && orig.value && !tplNode.value) tplNode.value = orig.value;
+                            }
+                        }
+                        // Recurse for children with ids
+                        tplNode.querySelectorAll?.('[id]').forEach(child => mergeFromOriginal(child));
+                    };
+                    const pushEl = el => {
+                        if (!el.id) el.id = this.getStableId(el.tagName, this._pos++);
+                        mergeFromOriginal(el);
+                        elementItems.push(el);
+                    };
                     if (Array.isArray(item)) {
                         item.forEach(i => {
                             if (!i) return;
@@ -227,6 +256,7 @@ export function pfusch(tagName, initialState, template) {
             }
 
             this._f &= ~8;                // clear rendering
+            if (this._hydrating) this._hydrating = false; // hydration done after first successful render
             if (this._f & 64) this._f &= ~64; // clear queued flag
             if (this._f & 16) {            // needs rerender?
                 this._f &= ~16;
