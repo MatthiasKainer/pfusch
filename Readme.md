@@ -1,159 +1,430 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-286-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-6.7K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-2.7K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-286-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-7.5K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-2.9K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
-Pfusch is a super-minimal web component library, that you can (and should) use without any bundler, minifier, builder, transpiler or thingamajig.
+**Pfusch is a super-minimal web component library for rapid prototyping and progressive enhancement.** No npm. No bundler. No build step. No fighting with tooling. Just HTML, JavaScript, and results in minutes.
 
-I use it for quick prototyping, for quick and dirty projects, and for fun. It is not meant to be used in production, but it is a great way to get started with web components without the hassle of setting up a full-blown framework.
+## Why Pfusch?
 
-## Using `pfusch`
+- **Instant Setup**: Drop a script tag in your HTML and start building
+- **Progressive Enhancement**: Write semantic HTML first, enhance with interactivity where needed
+- **Design System Integration**: Works out-of-the-box with your existing CSS and design tokens
+- **Prototype to Production**: Go from idea to interactive prototype faster than you can say "npm install"
+- **Zero Dependencies**: No package.json, no node_modules, no build pipeline
 
-To use `pfusch` in your project, follow these steps:
+Pfusch is perfect for quick prototypes, internal tools, interactive documentation, and projects where you want to enhance static HTML without downloading the internet.
 
-1. Create a javascript file like it's in 1998
+## Quick Start
 
-```bash
-touch hello-world.js
-```
-
-2. Add it to a html file like it's 2024, so with a web component
+**1. Add pfusch to your HTML**
 
 ```html
+<!DOCTYPE html>
 <html>
-  <head>
-    <title>Pfusch!</title>
-  </head>
-  <body>
-    <hello-world></hello-world>
-    <script src="hello-world.js" type="module"></script>
-  </body>
+<head>
+  <link rel="stylesheet" href="your-design-system.css" data-pfusch>
+</head>
+<body>
+  <h1>My Prototype</h1>
+  
+  <!-- Your interactive component will go here -->
+  <live-counter></live-counter>
+  
+  <script type="module">
+    import { pfusch, html } from "https://matthiaskainer.github.io/pfusch/pfusch.min.js";
+    
+    pfusch("live-counter", { count: 0 }, (state) => [
+      html.div(
+        html.p`Count: ${state.count}`,
+        html.button({ click: () => state.count++ }, "Increment")
+      )
+    ]);
+  </script>
+</body>
 </html>
 ```
 
-3. Start using `pfusch` in your `hello-world.js`:
+That's it. No npm install, no build step, no webpack config. Just open the HTML file and you're done.
 
-```javascript
-import {
-  pfusch,
-  html,
-} from "https://matthiaskainer.github.io/pfusch/pfusch.min.js";
+## Core Concepts
 
-pfusch("hello-world", () => [html.div(html.h1`hello`, html.p`world!`)]);
-```
+### Progressive Enhancement
 
-4. Use it wisely by progressively enhancing your page
+Start with semantic HTML, enhance with interactivity:
 
 ```html
-<table-wrapper url="example/items.json">
+<!-- Your static content -->
+<data-table>
   <table>
-    <thead>
-      <tr>
-        <th>Column 1</th>
-        <th>Column 2</th>
-        <th>Column 3</th>
-      </tr>
-    </thead>
-    <tbody id="table-body">
-      <tr>
-        <td>prerendered item</td>
-        <td>100</td>
-        <td>yes</td>
-      </tr>
+    <thead><tr><th>Name</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Item 1</td><td>Ready</td></tr>
+      <tr><td>Item 2</td><td>Pending</td></tr>
     </tbody>
   </table>
-</table-wrapper>
+</data-table>
+
+<script type="module">
+  import { pfusch, html, script } from "./pfusch.js";
+  
+  pfusch("data-table", { sortBy: null, items: [], loading: true }, (state, trigger, { children }) => {
+    const sortItems = (items, sortBy) => {
+      if (!sortBy) return items;
+      return [...items].sort((a, b) => 
+        String(a[sortBy]).localeCompare(String(b[sortBy]))
+      );
+    };
+    
+    return [
+      script(function() {
+        // Extract data from original table in light DOM
+        const tables = children('table');
+        if (tables && tables.length > 0) {
+          const table = tables[0];
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          state.items = rows.map(row => {
+            const cells = row.querySelectorAll('td');
+            return {
+              name: cells[0]?.textContent?.trim() || '',
+              status: cells[1]?.textContent?.trim() || ''
+            };
+          });
+        }
+        state.loading = false;
+      }),
+      // Add interactive controls
+      html.div(
+        html.button({ click: () => state.sortBy = 'name' }, "Sort by Name"),
+        html.button({ click: () => state.sortBy = 'status' }, "Sort by Status"),
+        html.button({ click: () => state.sortBy = null }, "Clear")
+      ),
+      // Show original content while loading, then show sorted data
+      state.loading 
+        ? html.slot()
+        : html.table(
+            html.thead(html.tr(html.th("Name"), html.th("Status"))),
+            html.tbody(
+              ...sortItems(state.items, state.sortBy).map(item =>
+                html.tr(html.td(item.name), html.td(item.status))
+              )
+            )
+          )
+    ];
+  });
+</script>
 ```
 
-```js
-import { pfusch, script, html } from "../pfusch.js";
+### Event-Driven Architecture
 
-pfusch(
-  "table-wrapper",
-  { url: "/example/items.json", items: [], selectedId: null },
-  (state) => [
-    script(async function () { // always use `function` to access `this` in the script
-      state.items = await fetch(`${state.url}`).then((response) =>
-        response.json()
-      );
+Build loosely-coupled components with global events:
+
+```html
+<status-display event="data-loader.loaded"></status-display>
+<data-loader></data-loader>
+
+<script type="module">
+  import { pfusch, html, script } from "./pfusch.js";
+  
+  // Display listens for events
+  pfusch("status-display", { message: "", event: "" }, (state) => [
+    script(function() {
+      window.addEventListener(state.event, (e) => {
+        state.message = e.detail.status;
+      });
     }),
-    html.tbody(
-      {
-        id: "table-body",
-      },
-      ...state.items.map((item) =>
-        html.tr(
-          html.td(item.name),
-          html.td(item.price),
-          html.td(item["in stock"] ? "yes" : "no")
+    html.div({ class: "status-message" }, state.message)
+  ]);
+  
+  // Loader triggers events
+  // NOTE: trigger("loaded") automatically becomes "data-loader.loaded"
+  // Events are prefixed with the component name
+  pfusch("data-loader", {}, (state, trigger) => [
+    html.button({ 
+      click: async () => {
+        const data = await fetch('/api/data').then(r => r.json());
+        trigger("loaded", { status: "Success!", data });
+      }
+    }, "Load Data")
+  ]);
+</script>
+```
+
+### Design System Integration
+
+Pfusch works seamlessly with your existing styles:
+
+```html
+<head>
+  <!-- Your design system -->
+  <link rel="stylesheet" href="design-system.css" data-pfusch>
+  <style id="pfusch-style">
+    /* Additional component-specific styles */
+    .status-badge { /* ... */ }
+  </style>
+</head>
+
+<body>
+  <status-panel status="loading"></status-panel>
+  
+  <script type="module">
+    import { pfusch, html, css } from "./pfusch.js";
+    
+    pfusch("status-panel", { status: "idle" }, (state) => [
+      // Use your design system's classes
+      html.div({ class: "card" },
+        html.span({ 
+          class: `badge status-badge status-${state.status}` 
+        }, state.status),
+        html.p({ class: "text-muted" }, "System Status")
+      )
+    ]);
+  </script>
+</body>
+```
+
+### Real-World Example: Live Monitoring Dashboard
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="your-design.css" data-pfusch>
+</head>
+<body>
+  <h1>System Monitor</h1>
+  
+  <!-- Static content enhanced with live updates -->
+  <div class="dashboard">
+    <metric-card metric="cpu" label="CPU Usage"></metric-card>
+    <metric-card metric="memory" label="Memory"></metric-card>
+    <event-log max="50"></event-log>
+  </div>
+  
+  <script type="module">
+    import { pfusch, html, css, script } from "./pfusch.js";
+    
+    // Reusable metric display
+    pfusch("metric-card", { metric: "", label: "", value: "–" }, (state) => [
+      script(function() {
+        // Subscribe to global metric updates
+        window.addEventListener(`metrics.${state.metric}`, (e) => {
+          state.value = e.detail.value;
+        });
+      }),
+      html.div({ class: "card" },
+        html.h3(state.label),
+        html.div({ class: "metric-value" }, state.value)
+      )
+    ]);
+    
+    // Event log that auto-updates
+    pfusch("event-log", { events: [], max: 100 }, (state) => [
+      script(function() {
+        window.addEventListener("system.event", (e) => {
+          state.events = [
+            { time: Date.now(), msg: e.detail.message },
+            ...state.events
+          ].slice(0, state.max);
+        });
+      }),
+      html.div({ class: "card" },
+        html.h3("Events"),
+        html.ul(
+          ...state.events.map(evt => 
+            html.li(
+              html.time(new Date(evt.time).toLocaleTimeString()),
+              html.span(evt.msg)
+            )
+          )
         )
       )
-    ),
-  ]
-);
+    ]);
+    
+    // Simulate metrics (replace with real WebSocket/SSE in production)
+    setInterval(() => {
+      window.dispatchEvent(new CustomEvent("metrics.cpu", {
+        detail: { value: Math.floor(Math.random() * 100) + "%" }
+      }));
+      window.dispatchEvent(new CustomEvent("system.event", {
+        detail: { message: "Health check passed" }
+      }));
+    }, 2000);
+  </script>
+</body>
+</html>
 ```
 
-5. Go nuts and use it like a SPA with state and styles and stuff
+See more examples at https://matthiaskainer.github.io/pfusch/
 
-```js
-import {
-  pfusch,
-  script,
-  css,
-  html,
-} from "https://matthiaskainer.github.io/pfusch/pfusch.min.js";
+## Rapid Prototyping Patterns
 
-pfusch("my-list-element", { id: "", completed: false, text: "" }, (state) => [
-  css`
-    li {
-      cursor: pointer;
-    }
-    li:hover {
-      color: #f0f;
-    }
-    .completed {
-      text-decoration: line-through;
-    }
-  `,
-  html.li(
-    {
-      id: `li-${state.id}`,
-      class: state.completed ? "completed" : "",
-      click: () => {
-        state.completed = !state.completed;
-      },
-    },
-    state.text
-  ),
-]);
+### Pattern 1: Static HTML First
 
-pfusch("my-list", { items: [] }, (state) => [
-  html.ul(...state.items.map((item) => html["my-list-element"]({ ...item }))),
-]);
+Always start with working HTML, then enhance:
 
-pfusch("my-count", { count: 0 }, (state) => [
-  html.p(`Count: ${state.count}`),
-  html.button({ click: () => state.count++ }, "Increment"),
-]);
+```html
+<!-- Works without JavaScript -->
+<form action="/api/subscribe" method="post">
+  <input type="email" name="email" required>
+  <button type="submit">Subscribe</button>
+</form>
 
-pfusch("my-component", { count: 0, items: [] }, (state) => [
-  html.div(
-    { id: "my-component" },
-    html[`my-list`]({ items: state.items }),
-    html[`my-count`]({ count: state.count }),
-    html.button({ click: () => (state.count = 0) }, "Reset")
-  ),
-  script(async () => {
-    const data = await fetch("./data.json").then((response) => response.json());
-    state.items = data.todos;
-  }),
-]);
+<script type="module">
+  import { pfusch, script } from "./pfusch.js";
+  
+  // Enhance with client-side validation and feedback
+  pfusch("email-form", { status: "" }, (state, trigger, { children }) => [
+    script(function() {
+      const form = this.querySelector('form');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        state.status = "Submitting...";
+        const data = new FormData(form);
+        await fetch(form.action, { method: 'POST', body: data });
+        state.status = "✓ Subscribed!";
+      });
+    }),
+    children()[0], // Original form
+    state.status ? html.p({ class: "status" }, state.status) : null
+  ]);
+</script>
 ```
 
-See it in action on https://matthiaskainer.github.io/pfusch/
+### Pattern 2: Global Event Bus
 
-For more information and detailed documentation, please refer to the official `pfusch` documentation. Which doesn't exist. Happy trial and error!
+Decouple components with window events:
+
+```html
+<search-box></search-box>
+<results-list></results-list>
+<results-count></results-count>
+
+<script type="module">
+  import { pfusch, html, script } from "./pfusch.js";
+  
+  pfusch("search-box", { query: "" }, (state, trigger) => [
+    html.input({ 
+      input: (e) => {
+        state.query = e.target.value;
+        trigger("search", { query: state.query });
+      }
+    })
+  ]);
+  
+  pfusch("results-list", { items: [] }, (state, trigger) => [
+    script(function() {
+      window.addEventListener("search-box.search", async (e) => {
+        const res = await fetch(`/api/search?q=${e.detail.query}`);
+        state.items = await res.json();
+        trigger("updated", state.items);
+      });
+    }),
+    html.ul(...state.items.map(item => html.li(item.name)))
+  ]);
+  
+  pfusch("results-count", { count: 0 }, (state) => [
+    script(function() {
+      window.addEventListener("results-list.updated", (e) => {
+        state.count = e.detail.length;
+      });
+    }),
+    html.div(`Found ${state.count} results`)
+  ]);
+</script>
+```
+
+### Pattern 3: Design System Integration
+
+Use your existing CSS framework:
+
+```html
+<link rel="stylesheet" href="bootstrap.min.css" data-pfusch>
+
+<script type="module">
+  import { pfusch, html } from "./pfusch.js";
+  
+  pfusch("alert-box", { type: "info", message: "" }, (state) => [
+    html.div({ 
+      class: `alert alert-${state.type}`,
+      role: "alert" 
+    }, state.message)
+  ]);
+  
+  pfusch("loading-button", { loading: false }, (state, trigger) => [
+    html.button({
+      class: "btn btn-primary",
+      disabled: state.loading,
+      click: async () => {
+        state.loading = true;
+        await someAsyncAction();
+        state.loading = false;
+      }
+    }, state.loading ? html.span({ class: "spinner-border spinner-border-sm" }) : "Submit")
+  ]);
+</script>
+```
+
+### Pattern 4: Server-Sent Events (SSE)
+
+Perfect for real-time dashboards:
+
+```html
+<live-feed url="/api/events"></live-feed>
+
+<script type="module">
+  import { pfusch, html, script } from "./pfusch.js";
+  
+  pfusch("live-feed", { url: "", events: [] }, (state) => [
+    script(function() {
+      const evtSource = new EventSource(state.url);
+      evtSource.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        state.events = [data, ...state.events].slice(0, 50);
+      };
+      this.component.addEventListener('disconnected', () => {
+        evtSource.close();
+      });
+    }),
+    html.ul({ class: "event-list" },
+      ...state.events.map(evt => 
+        html.li(
+          html.time(new Date(evt.timestamp).toLocaleString()),
+          html.span(evt.message)
+        )
+      )
+    )
+  ]);
+</script>
+```
+
+### Pattern 5: Form Integration
+
+Native form support with state serialization:
+
+```html
+<form method="post" action="/api/save">
+  <star-rating name="rating" value="0"></star-rating>
+  <button type="submit">Submit</button>
+</form>
+
+<script type="module">
+  import { pfusch, html } from "./pfusch.js";
+  
+  pfusch("star-rating", { name: "rating", value: 0, max: 5 }, (state) => [
+    // State is automatically serialized to form value
+    html.div(
+      ...Array.from({ length: state.max }, (_, i) => 
+        html.button({
+          type: "button",
+          click: () => state.value = i + 1
+        }, state.value > i ? "★" : "☆")
+      )
+    )
+  ]);
+</script>
+```
 
 ## Build
 
@@ -170,9 +441,30 @@ gzip -k -9 pfusch.min.js; ls -lh pfusch.min.js.gz | awk '{print $5}'; rm -f pfus
 
 ### Can I use this in production?
 
-Absolutely not. I build the framework in a rage and in very little time, and most of the time spend on this project went into the github page. If you want to do something quickly without npm installing the internet and fighting with webpack and friends, then this might be a good choice.
+Pfusch was built for rapid prototyping and internal tools where you need results in minutes, not hours. It's perfect for:
 
-Then again, people are using React in production, and the license is MIT so I'm not liable - so knock yourself out.
+- **Internal dashboards and admin panels**
+- **Interactive prototypes and demos**
+- **Documentation with live examples**
+- **Quick MVPs and proof-of-concepts**
+- **Progressive enhancement of static sites**
+
+If you want to avoid npm installing the internet and fighting with webpack configs just to add some interactivity to your page, pfusch is a great choice.
+
+That said, the framework was built quickly (in a rage, even), and most effort went into the GitHub page rather than production-grade testing. The license is MIT, so you're free to use it however you want—just know what you're getting into.
+
+### How does it compare to React/Vue/Svelte?
+
+**Pfusch is not trying to be React.** It's the opposite philosophy:
+
+- ❌ No build step, no npm, no toolchain
+- ✅ Works directly in the browser
+- ✅ Progressive enhancement first
+- ✅ Integrates with your existing HTML/CSS
+- ✅ Event-driven, loosely-coupled architecture
+- ✅ Perfect for prototypes and internal tools
+
+If you're building a complex SPA with routing, state management, and thousands of components, use a proper framework. If you want to add interactivity to a page in 5 minutes without fighting with tooling, use pfusch.
 
 ### How to use it?
 
@@ -180,93 +472,66 @@ Kinda like above in the readme. There are more examples in the [example](example
 
 ### Come on, some hints!
 
-Alright. So basically, for every component you want to create, you use the `pfusch` method, which has the following signature:
+**Basic API:**
 
 ```js
 pfusch(
-    "name": string, 
-    initialState: { [key:string]: any }, 
-    (state: initialState, trigger: ("eventName": string, detail: any)) => [
-    // ...array of elements, styles and scripts
-])
+  "component-name",           // Custom element tag name
+  { key: "value" },           // Initial state (becomes attributes)
+  (state, trigger, helpers) => [  // Template function
+    // Returns array of: html elements, css styles, or scripts
+  ]
+)
 ```
 
-The initial state are also automatically becoming attributes on your component, so feel free to set them in HTML directly.
+**Key Features:**
 
-For instance:
+1. **State becomes attributes:** `{ count: 0 }` → `<my-counter count="5">`
+2. **Reactive updates:** Change `state.count++` → DOM updates automatically
+3. **Event triggering:** `trigger("clicked", data)` → fires `my-counter.clicked` globally
+4. **Light DOM access:** `helpers.children()` → access original HTML content
+5. **State subscription:** `state.subscribe('key', callback)` → react to changes
+
+**Quick Examples:**
 
 ```js
+// Simple component
 pfusch("hello-world", { who: "world" }, (state) => [
-  html.div(html.h2`hello ${who}`),
+  html.div(html.h2`Hello ${state.who}!`)
+]);
+
+// With events
+pfusch("click-counter", { count: 0 }, (state, trigger) => [
+  html.button({ 
+    click: () => {
+      state.count++;
+      trigger("counted", state.count);
+    }
+  }, `Clicked ${state.count} times`)
+]);
+
+// With async data
+pfusch("data-loader", { data: [] }, (state) => [
+  script(async function() {
+    state.data = await fetch('/api/data').then(r => r.json());
+  }),
+  html.ul(...state.data.map(item => html.li(item.name)))
+]);
+
+// Progressive enhancement
+pfusch("enhanced-form", {}, (state, trigger, { children }) => [
+  script(function() {
+    const form = this.querySelector('form');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      // Handle client-side
+    });
+  }),
+  children()[0]  // Keep original form HTML
 ]);
 ```
 
-and html
-
-```html
-<hello-world who="me!"></hello-world>
-```
-
-will show:
-
-> hello me!
-
-Now as lovely as this is, this library is about progressive enhancement, so let's show how this enhances specific parts of the page:
-
-```html
-<body>
-  <div>
-    <hello-world who="me!">
-      <h2>Hello <span id="who">...</span>!</h2>
-    </hello-world>
-  </div>
-  <script type="module">
-    import { pfusch, html, css } from "../../pfusch.js";
-
-    pfusch("hello-world", { who: "..." }, ({ who }) => [
-      css(`h1, h2 { text-align: center; width: 100%; }`),
-      html.span({ id: "who" }, who),
-    ]);
-  </script>
-</body>
-```
-
-Which will also show
-
-> hello me!
-
-But this time you far more control on the layout and the content of the component. And only when the state is changed, the part you want to change, will be changed. All the rest you can statically render and provide to the user at maximum speed. And yes, this also works with server-side rendering. If you prerender this with a headless browser, you will get something like
-
-```html
-<div>
-  <hello-world who="me!">
-    <template shadowrootmode="open">
-      <h2>Hello <span id="who">me!</span>!</h2>
-    </template>
-    <h2>Hello <span id="who">...</span>!</h2>
-  </hello-world>
-</div>
-```
-
-which, once you add the script and maybe change the attribute to `who="world"`, will update to show `Hello world!`.
-
-If state is updated, either inside the component or via an attribute change, the value will change. State changes are one-directional, so changing the state inside the component will not change the attribute. If you want to bubble up, do it via event. The easiest way for that is the `trigger` function that is passed as second argument after the state:
-
-```js
-pfusch("my-triggerydo", { clicked: 0 }, ({ clicked }, trigger) => [
-  html.button(
-    {
-      click: () => {
-        clicked++;
-        trigger("clickCount", clicked);
-      },
-    },
-    `Clicked me ${clicked}`
-  ),
-]);
-```
-
-Trigger will not only register this as event for this element, but also post a message with the event name `${tagName}.${eventName}`, so in this case `my-triggerydo.clickCount` and data in the form `{ sourceId, data }`, allowing you to globally register to changes in elements without caring where they are (or if they are).
+See the [Rapid Prototyping Patterns](#rapid-prototyping-patterns) section for more examples!
 
 ### Now I'm really into the classics, like html forms and full browser support and all that stuff. Can you help me there?
 
@@ -411,9 +676,17 @@ Now if someone use the component like this:
 and then changes the source attribute, the list will be updated with the new items. This is all thanks to the javascript `Proxy` object, which is also the reason why this library is very slow and not supported in IE11.
 
 
-### So I want to build a router component and...
+### But I need routing and...
 
-STOP RIGHT THERE! This is not a SPA framework. This is a web component library. You can build a router component, but why would you? Routing is a server-side concern, and if you want to do client-side routing, you misunderstood web. &lt;/old-man-yelling-at-spa>
+STOP RIGHT THERE! Pfusch is not an SPA framework. It's for progressive enhancement and rapid prototyping. 
+
+**For routing:** Use the browser's native navigation. Server-side routing works great and is faster than client-side routing anyway.
+
+**For complex state management:** If you need Redux-level state management, you probably need a real framework, not pfusch.
+
+**For large applications:** Pfusch shines at small-to-medium interactive enhancements, not building the next Facebook.
+
+The web has excellent built-in features for navigation, forms, and accessibility. Pfusch helps you enhance them, not replace them. Embrace the platform! 🎉
 
 But really, this libary is thought to embrace what you get for free, namely html, standard css, and server side routing/rendering, and focused on progressive enhancement. If you want to build a SPA, you can do that, but you have to do it with the tools you have, not the tools you want.
 
