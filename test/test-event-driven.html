@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event-Driven Architecture Test</title>
+</head>
+<body>
+    <h1>Event-Driven Architecture Test</h1>
+    
+    <status-display event="data-loader.loaded"></status-display>
+    <data-loader></data-loader>
+
+    <script type="module">
+        import { pfusch, html, script } from "../pfusch.js";
+        
+        console.log("=== INITIALIZING EVENT-DRIVEN COMPONENTS ===");
+        
+        // Display listens for events
+        pfusch("status-display", { message: "", event: "" }, (state) => [
+            script(function() {
+                console.log(`STATUS-DISPLAY: Listening for event: ${state.event}`);
+                window.addEventListener(state.event, (e) => {
+                    console.log(`STATUS-DISPLAY: Received event ${state.event}:`, e.detail);
+                    state.message = e.detail.status;
+                });
+            }),
+            html.div({ class: "status-message" }, state.message || "(waiting for data...)")
+        ]);
+        
+        // Loader triggers events
+        pfusch("data-loader", {}, (state, trigger) => [
+            html.button({ 
+                click: async () => {
+                    console.log("DATA-LOADER: Button clicked");
+                    // Simulate API call
+                    const data = { items: ["item1", "item2", "item3"] };
+                    console.log("DATA-LOADER: Triggering 'loaded' event with data:", data);
+                    trigger("loaded", { status: "Success!", data });
+                }
+            }, "Load Data")
+        ]);
+        
+        console.log("=== COMPONENTS INITIALIZED ===");
+    </script>
+</body>
+</html>

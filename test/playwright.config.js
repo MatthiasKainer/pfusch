@@ -70,10 +70,11 @@ module.exports = defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://127.0.0.1:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  webServer: {
+    command: 'npx serve -l 3030 ..',
+    url: 'http://127.0.0.1:3030',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
 });
 

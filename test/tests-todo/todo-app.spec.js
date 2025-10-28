@@ -9,9 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 const todoApp = async (page) => {
-    const tabSelection = page.locator('#tab-btn-todo').first();
-    await tabSelection.click();
-
+    // No need to click tabs anymore - todo-app is directly visible
     const todoList = page.locator('.todo-list').first();
     const todoInput = page.locator('.todo-input').first();
 
