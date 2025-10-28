@@ -1,371 +1,576 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>Comprehensive Pfusch Example</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pfusch - Rapid Prototyping with Zero Build Tools</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" data-pfusch>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/grids-responsive-min.css" data-pfusch>
     <style id="pfusch-style">
-        html {
-            min-height: 100vh;
-            margin: 0;
-            padding: 0;
+        :root {
+            --primary-color: #5b21b6;
+            --primary-light: #7c3aed;
+            --secondary-color: #059669;
+            --text-color: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --border-color: #e5e7eb;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #222;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-color);
+            line-height: 1.6;
             margin: 0;
-            padding: 0;
+            background: #ffffff;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #a855f7 100%);
+            color: white;
+            padding: 5rem 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            margin: 0 0 1rem 0;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero .tagline {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            opacity: 1;
+        }
+
+        .hero > p {
+            font-size: 1.25rem;
+            opacity: 0.95;
+            margin-bottom: 2rem;
+        }
+
+        .hero .stats {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #f8fafc 0%, #e3e9f7 100%);
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 3rem;
+            flex-wrap: wrap;
         }
 
-        body.bg-incremented {
-            background: linear-gradient(135deg, #e7f3ff 0%, #cce4ff 100%);
+        .hero .stat {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        body.bg-decremented {
-            background: linear-gradient(135deg, #ffe7e7 0%, #ffcccc 100%);
-        }
-
-        .main-card {
-            background: #fff;
-            box-shadow: 0 6px 32px 0 rgba(60, 72, 100, 0.10), 0 1.5px 6px 0 rgba(60, 72, 100, 0.08);
-            border-radius: 18px;
-            padding: 36px 32px 32px 32px;
-            margin: 40px 0 40px 0;
-            max-width: 820px;
-            width: 100%;
-            min-width: 320px;
-        }
-
-        h1 {
+        .hero .stat-value {
             font-size: 2.5rem;
-            font-weight: 700;
-            letter-spacing: -1px;
-            margin-bottom: 0.5em;
-            color: #2d3a4a;
-            text-align: center;
+            font-weight: 900;
+            display: block;
+            margin-bottom: 0.25rem;
         }
 
-        p {
-            text-align: center;
-            color: #5a6a85;
-            font-size: 1.15rem;
-            margin-bottom: 2.5em;
+        .hero .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.95;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        .highlight {
-            background-color: #fffbe6;
-            border: 1px solid #ffeaa7;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin: 12px 0;
-        }
-
-        .error {
-            color: #dc3545;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            padding: 12px 16px;
-            border-radius: 6px;
-        }
-
-        form {
-            max-width: 500px;
+        .content {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 3rem 2rem;
         }
 
-        input:invalid:focus {
-            animation: shake 0.5s ease-in-out;
+        .section {
+            margin-bottom: 5rem;
         }
 
-        @keyframes shake {
-
-            0%,
-            20%,
-            40%,
-            60%,
-            80% {
-                transform: translateX(0);
-            }
-
-            10%,
-            30%,
-            50%,
-            70%,
-            90% {
-                transform: translateX(-2px);
-            }
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            font-weight: 800;
         }
 
-        button:focus {
-            outline: 2px solid #007bff;
-            outline-offset: 2px;
+        .section-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
         }
 
-        input:focus {
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .feature-card {
+            background: white;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary-light);
+            box-shadow: 0 8px 16px rgba(91, 33, 182, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card p {
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        .example-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 3rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .example-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .example-header {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .example-title {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+
+        .example-description {
+            margin: 0;
+            color: var(--text-light);
+        }
+
+        .example-demo {
+            padding: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: #fafbfc;
+        }
+
+        .example-code {
+            background: var(--code-bg);
+            padding: 0;
             position: relative;
-            z-index: 1;
         }
 
-        /* Add a subtle fade-in for the card */
-        .main-card {
-            animation: fadeInCard 0.7s cubic-bezier(.4, 0, .2, 1);
+        .example-code::before {
+            content: "CODE";
+            position: absolute;
+            top: 0.75rem;
+            right: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgba(226, 232, 240, 0.5);
+            letter-spacing: 0.05em;
         }
 
-        @keyframes fadeInCard {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .example-code pre {
+            margin: 0;
+            padding: 2rem 1.5rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+            line-height: 1.7;
+            font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
         }
 
-        /* Responsive tweaks */
-        @media (max-width: 900px) {
-            .main-card {
-                max-width: 98vw;
-                padding: 18px 4vw 24px 4vw;
-            }
+        .example-code code {
+            color: var(--code-text);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
 
-        @media (max-width: 600px) {
-            .main-card {
-                padding: 10px 2vw 16px 2vw;
-            }
-
-            h1 {
-                font-size: 2rem;
-            }
+        /* Syntax highlighting for code */
+        .example-code pre {
+            color: #e2e8f0;
         }
     </style>
 </head>
-
 <body>
-    <div class="main-card">
-        <h1>Pfusch</h1>
-        <p>A quick showcase of the Pfusch framework.</p>
+    <!-- Hero Section -->
+    <div class="hero">
+        <h1>🚀 Pfusch</h1>
+        <p class="tagline">Rapid Prototyping with Zero Build Tools</p>
+        <p>No npm. No bundler. No build step. Just results in minutes.</p>
+        
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-value">286</span>
+                <span class="stat-label">Lines of Code</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">2.9K</span>
+                <span class="stat-label">Gzipped</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">0</span>
+                <span class="stat-label">Dependencies</span>
+            </div>
+        </div>
+    </div>
 
-        <tab-element>
-            <tab-content tab="hello" title="Hello World">
-                <hello-world who="Universe"></hello-world>
-            </tab-content>
+    <!-- Why Pfusch -->
+    <div class="content">
+        <div class="section">
+            <h2 class="section-title">Why Pfusch?</h2>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Instant Setup</h3>
+                    <p>Drop a script tag in your HTML and start building. No configuration files, no package.json, no webpack.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Design System Ready</h3>
+                    <p>Works seamlessly with Pure CSS, Bootstrap, Tailwind, or your own CSS. Shadow DOM integration built-in.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Progressive Enhancement</h3>
+                    <p>Start with semantic HTML, enhance with interactivity. Works without JavaScript, better with it.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>Zero Dependencies</h3>
+                    <p>No node_modules folder with 500MB of packages. No build pipeline. No fighting with tooling.</p>
+                </div>
+            </div>
+        </div>
 
-            <tab-content tab="counter" title="Counter">
-                <my-counter count="10">
-                    Simple Counter Component with global effect
-                </my-counter>
-                <div style="border: 1px solid #eee; padding: 12px; border-radius: 6px; margin-top: 12px;">
-                    <event-counter>
-                        Event-driven Counter Component - Control
-                    </event-counter>
-                    <counter-display eventIncrement="event-counter.increment" eventDecrement="event-counter.decrement"
+        <!-- Quick Start -->
+        <div class="section">
+            <h2 class="section-title">Get Started in 30 Seconds</h2>
+            
+            <div class="example-code">
+                <pre><code>&lt;script type="module"&gt;
+  import { pfusch, html } from "https://matthiaskainer.github.io/pfusch/pfusch.min.js";
+  
+  pfusch("live-counter", { count: 0 }, (state) => [
+    html.div(
+      html.p`Count: ${state.count}`,
+      html.button({ click: () => state.count++ }, "Increment")
+    )
+  ]);
+&lt;/script&gt;
+
+&lt;live-counter&gt;&lt;/live-counter&gt;</code></pre>
+            </div>
+        </div>
+
+        <!-- Examples -->
+        <div class="section">
+            <h2 class="section-title">Interactive Examples</h2>
+            
+            <!-- Example 1: Counter -->
+            <div class="example-card">
+                <div class="example-header">
+                    <h3 class="example-title">Simple Counter</h3>
+                    <p class="example-description">Reactive state management with direct mutation</p>
+                </div>
+                
+                <div class="example-demo">
+                    <my-counter count="10"></my-counter>
+                </div>
+                
+                <div class="example-code">
+                    <pre><code>pfusch("my-counter", { count: 0 }, (state) => [
+  html.div(
+    html.p`Count: ${state.count}`,
+    html.button({ 
+      click: () => state.count++ 
+    }, "Increment")
+  )
+]);</code></pre>
+                </div>
+            </div>
+
+            <!-- Example 2: Event-Driven -->
+            <div class="example-card">
+                <div class="example-header">
+                    <h3 class="example-title">Event-Driven Architecture</h3>
+                    <p class="example-description">Loosely-coupled components with global events</p>
+                </div>
+                
+                <div class="example-demo">
+                    <event-counter></event-counter>
+                    <counter-display 
+                        eventIncrement="event-counter.increment"
+                        eventDecrement="event-counter.decrement"
                         eventReset="event-counter.reset">
-                        Event-driven Counter Component - Display
                     </counter-display>
                 </div>
-            </tab-content>
+                
+                <div class="example-code">
+                    <pre><code>// Component that triggers events
+pfusch("event-counter", {}, (state, trigger) => [
+  html.button({ 
+    click: () => trigger("increment") 
+  }, "Increment")
+]);
 
+// Component that listens to events
+pfusch("counter-display", { count: 0, eventIncrement: "" }, (state) => [
+  script(function() {
+    window.addEventListener(state.eventIncrement, () => {
+      state.count++;
+    });
+  }),
+  html.div`Count: ${state.count}`
+]);</code></pre>
+                </div>
+            </div>
 
-            <tab-content tab="forms" title="Forms">
-                <form-validator>
-                    <form id="test-form">
-                        <my-input name="username" placeholder="Enter username" required="true"></my-input>
-                        <my-input name="email" type="email" placeholder="Enter email" required="true"></my-input>
-                        <button type="submit" id="submit-btn">Submit</button>
-                    </form>
-                </form-validator>
-            </tab-content>
+            <!-- Example 3: Forms -->
+            <div class="example-card">
+                <div class="example-header">
+                    <h3 class="example-title">Form Validation</h3>
+                    <p class="example-description">Native form integration with live validation</p>
+                </div>
+                
+                <div class="example-demo">
+                    <form-validator>
+                        <form id="test-form" class="pure-form pure-form-stacked">
+                            <my-input name="username" placeholder="Enter username" required="true"></my-input>
+                            <my-input name="email" type="email" placeholder="Enter email" required="true"></my-input>
+                            <button type="submit" id="submit-btn" class="pure-button pure-button-primary">Submit</button>
+                        </form>
+                    </form-validator>
+                </div>
+                
+                <div class="example-code">
+                    <pre><code>pfusch("my-input", {
+  name: "", value: "", required: false, errorMessage: ""
+}, (state, trigger) => [
+  html.input({
+    name: state.name,
+    value: state.value,
+    required: state.required,
+    input: (e) => {
+      state.value = e.target.value;
+      // Validation logic...
+      trigger("validation", { name, isValid, errorMessage });
+    }
+  }),
+  state.errorMessage ? html.div(state.errorMessage) : null
+]);</code></pre>
+                </div>
+            </div>
 
-            <tab-content tab="todo" title="Todo App">
-                <todo-app
-                    todos="[{&quot;id&quot;:1,&quot;text&quot;:&quot;Learn pfusch&quot;,&quot;completed&quot;:false},{&quot;id&quot;:2,&quot;text&quot;:&quot;Learn JavaScript &quot;,&quot;completed&quot;:true},{&quot;id&quot;:3,&quot;text&quot;:&quot;Learn html&quot;,&quot;completed&quot;:true}]"></todo-app>
-            </tab-content>
+            <!-- Example 4: Todo App -->
+            <div class="example-card">
+                <div class="example-header">
+                    <h3 class="example-title">Todo Application</h3>
+                    <p class="example-description">Component composition and state management</p>
+                </div>
+                
+                <div class="example-demo">
+                    <todo-app 
+                        todos="[{&quot;id&quot;:1,&quot;text&quot;:&quot;Learn pfusch&quot;,&quot;completed&quot;:false},{&quot;id&quot;:2,&quot;text&quot;:&quot;Learn JavaScript &quot;,&quot;completed&quot;:true},{&quot;id&quot;:3,&quot;text&quot;:&quot;Learn html&quot;,&quot;completed&quot;:true}]">
+                    </todo-app>
+                </div>
+                
+                <div class="example-code">
+                    <pre><code>pfusch("todo-app", { todos: [] }, (state) => [
+  html.div(
+    html.input({
+      keydown: (e) => {
+        if (e.key === 'Enter') {
+          state.todos = [...state.todos, {
+            id: Date.now(),
+            text: e.target.value,
+            completed: false
+          }];
+          e.target.value = '';
+        }
+      }
+    }),
+    html.ul(
+      ...state.todos.map(todo =>
+        html["todo-item"]({ ...todo })
+      )
+    )
+  )
+]);</code></pre>
+                </div>
+            </div>
 
-            <tab-content tab="table" title="Progressive Enhancement">
-                <enhanced-table>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-content">
-                            <tr>
-                                <td>Waiting</td>
-                                <td>for data...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </enhanced-table>
-            </tab-content>
-        </tab-element>
+            <!-- Example 5: Progressive Enhancement -->
+            <div class="example-card">
+                <div class="example-header">
+                    <h3 class="example-title">Progressive Enhancement</h3>
+                    <p class="example-description">Enhance existing HTML with interactivity</p>
+                </div>
+                
+                <div class="example-demo">
+                    <enhanced-table>
+                        <table class="pure-table pure-table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-content">
+                                <tr>
+                                    <td>Zebra Project</td>
+                                    <td>Active</td>
+                                    <td>High</td>
+                                </tr>
+                                <tr>
+                                    <td>Apple Initiative</td>
+                                    <td>Pending</td>
+                                    <td>Low</td>
+                                </tr>
+                                <tr>
+                                    <td>Mango Task</td>
+                                    <td>Active</td>
+                                    <td>Medium</td>
+                                </tr>
+                                <tr>
+                                    <td>Banana Feature</td>
+                                    <td>Completed</td>
+                                    <td>High</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </enhanced-table>
+                </div>                <div class="example-code">
+                    <pre><code>pfusch("enhanced-table", { sortBy: null, items: [], columns: [] }, 
+  (state, trigger, { children }) => {
+  const sortItems = (items, sortBy) => {
+    if (!sortBy) return items;
+    return [...items].sort((a, b) => 
+      String(a[sortBy]).localeCompare(String(b[sortBy]))
+    );
+  };
+  
+  return [
+    script(function() {
+      // Extract data from existing table in light DOM
+      const tables = children('table');
+      const headers = Array.from(tables[0].querySelectorAll('thead th'));
+      
+      // Build columns dynamically from headers
+      state.columns = headers.map(th => ({
+        name: th.textContent.trim(),
+        key: th.textContent.trim().toLowerCase()
+      }));
+      
+      // Build items dynamically from rows
+      const rows = Array.from(tables[0].querySelectorAll('tbody tr'));
+      state.items = rows.map(row => {
+        const cells = row.querySelectorAll('td');
+        const item = {};
+        state.columns.forEach((col, idx) => {
+          item[col.key] = cells[idx]?.textContent?.trim() || '';
+        });
+        return item;
+      });
+    }),
+    // Add sort buttons
+    html.div(
+      ...state.columns.map(col =>
+        html.button({ 
+          click: () => state.sortBy = col.key 
+        }, `Sort by ${col.name}`)
+      ),
+      html.button({ click: () => state.sortBy = null }, "Clear")
+    ),
+    // Show original while loading, then sorted table
+    state.loading ? html.slot() : renderSortedTable(state)
+  ];
+});</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="section" style="text-align: center; padding: 4rem 0;">
+            <h2 class="section-title">Ready to Build Something?</h2>
+            <p style="font-size: 1.2rem; margin-bottom: 2rem;">
+                Stop fighting with build tools. Start building.
+            </p>
+            <a href="https://github.com/MatthiasKainer/pfusch" class="pure-button pure-button-primary" style="font-size: 1.2rem; padding: 1rem 3rem;">
+                View on GitHub
+            </a>
+            <a href="./Readme.md" class="pure-button" style="font-size: 1.2rem; padding: 1rem 3rem; margin-left: 1rem;">
+                Read the Docs
+            </a>
+        </div>
     </div>
 
     <script type="module">
         import { pfusch, html, css, script } from './pfusch.js';
 
-        // Tab system components
-        pfusch("tab-element", { activeTab: "hello", tabs: [] }, (state, trigger, { children }) => [
-            css`
-                .tab-container {
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    margin: 20px 0;
-                }
-                .tab-nav {
-                    display: flex;
-                    background: #f8f9fa;
-                    border-bottom: 1px solid #ddd;
-                    flex-wrap: wrap;
-                }
-                .tab-button {
-                    background: none;
-                    border: none;
-                    padding: 15px 20px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: #666;
-                    border-bottom: 3px solid transparent;
-                    transition: all 0.2s ease;
-                    flex: 1;
-                    min-width: 120px;
-                }
-                .tab-button:hover {
-                    background: #e9ecef;
-                    color: #333;
-                }
-                .tab-button.active {
-                    color: #007bff;
-                    border-bottom-color: #007bff;
-                    background: white;
-                }
-                .tab-content-area {
-                    padding: 20px;
-                    min-height: 400px;
-                }
-                /* Hide all tab-content by default */
-                ::slotted(tab-content) {
-                    display: none;
-                }
-                /* Show only the active tab-content */
-                ::slotted(tab-content[isactive="true"]) {
-                    display: block;
-                }
-            `,
-            script(() => {
-                // Get tab content elements from light DOM
-                const tabContents = children('tab-content');
-
-                // Only initialize tabs if they haven't been set yet
-                if (state.tabs.length === 0) {
-                    const newTabs = tabContents.map(content => ({
-                        id: content.getAttribute('tab'),
-                        title: content.getAttribute('title'),
-                        element: content
-                    }));
-
-                    // Use Object.assign to avoid triggering reactivity during initialization
-                    Object.assign(state, { tabs: newTabs });
-
-                    // Set initial active tab if not set
-                    if (!state.activeTab && newTabs.length > 0) {
-                        Object.assign(state, { activeTab: newTabs[0].id });
-                    }
-                }
-
-                // Function to update tab visibility
-                const updateTabVisibility = (activeTabId) => {
-                    state.tabs.forEach(tab => {
-                        if (tab.id === activeTabId) {
-                            tab.element.setAttribute('isactive', 'true');
-                        } else {
-                            tab.element.removeAttribute('isactive');
-                        }
-                    });
-                };
-
-                // Subscribe to activeTab changes to update visibility
-                state.subscribe('activeTab', updateTabVisibility);
-
-                // Initial visibility update
-                updateTabVisibility(state.activeTab);
-            }),
-            state.tabs?.length > 0 ? html.div({ id: "tab-container", class: "tab-container" },
-                html.div({ class: "tab-nav" },
-                    ...state.tabs.map(tab =>
-                        html.button({
-                            id: `tab-btn-${tab.id}`,
-                            class: `tab-button ${state.activeTab === tab.id ? 'active' : ''}`,
-                            click: () => state.activeTab = tab.id
-                        }, tab.title)
-                    )
-                ),
-                html.div({
-                    id: "tab-content-area",
-                    class: "tab-content-area"
-                },
-                    // Use a slot to show the light DOM content
-                    html.slot()
-                )
-            ) : null
-        ]);
-
-        pfusch("tab-content", { tab: "", title: "", isActive: false }, (state) => [
-            // This component acts as a container, its content is managed by tab-element
-            state.isActive ? html.slot() : html.div({ style: "display: none;" })
-        ]);
-
-        // 1. Simple hello world with template literals
-        pfusch("hello-world", { who: "World" }, (state) => [
-            html.div(html.h2`Hello ${state.who}!`, html.p`Welcome to pfusch`)
-        ]);
-
-        // 2. Counter with styling and events
+        // Counter Component
         pfusch("my-counter", { count: 0 }, (state, trigger) => [
             css`
                 .counter-container {
-                    border: 2px solid #007bff;
+                    border: 2px solid #667eea;
                     padding: 20px;
                     border-radius: 8px;
                     text-align: center;
-                    margin: 20px 0;
                 }
                 .count-display {
                     font-size: 32px;
                     font-weight: bold;
-                    color: #007bff;
+                    color: #667eea;
                     margin: 15px 0;
                 }
                 button {
-                    background: #007bff;
+                    background: #667eea;
                     color: white;
                     border: none;
                     padding: 10px 20px;
                     margin: 0 5px;
                     border-radius: 4px;
                     cursor: pointer;
-                    font-size: 16px;
                 }
                 button:hover {
-                    background: #0056b3;
-                }
-                button:active {
-                    transform: translateY(1px);
+                    background: #5568d3;
                 }
             `,
             html.div({ class: "counter-container" },
-                html.h3(html.slot()),
                 html.div({ class: "count-display" }, `Count: ${state.count}`),
                 html.button({
                     id: "increment-btn",
@@ -391,101 +596,83 @@
             )
         ]);
 
-
-        // 2b. Event-driven counter: event-counter (buttons) and counter-display (display)
+        // Event-driven counter
         pfusch("event-counter", {}, (state, trigger) => [
             css`
-                .event-counter-container {
-                    border: 2px solid #28a745;
+                .event-counter {
+                    border: 2px solid #41b883;
                     padding: 20px;
                     border-radius: 8px;
                     text-align: center;
-                    margin: 20px 0;
+                    margin-bottom: 20px;
                 }
                 button {
-                    background: #28a745;
+                    background: #41b883;
                     color: white;
                     border: none;
                     padding: 10px 20px;
                     margin: 0 5px;
                     border-radius: 4px;
                     cursor: pointer;
-                    font-size: 16px;
                 }
                 button:hover {
-                    background: #218838;
-                }
-                button:active {
-                    transform: translateY(1px);
+                    background: #35a372;
                 }
             `,
-            html.div({ class: "event-counter-container" },
-                html.h3(html.slot()),
+            html.div({ class: "event-counter" },
                 html.button({
                     id: "event-increment-btn",
-                    click: () => {
-                        window.dispatchEvent(new CustomEvent("event-counter.increment"));
-                    }
+                    click: () => trigger("increment")
                 }, "Increment"),
                 html.button({
                     id: "event-decrement-btn",
-                    click: () => {
-                        window.dispatchEvent(new CustomEvent("event-counter.decrement"));
-                    }
+                    click: () => trigger("decrement")
                 }, "Decrement"),
                 html.button({
                     id: "event-reset-btn",
-                    click: () => {
-                        window.dispatchEvent(new CustomEvent("event-counter.reset"));
-                    }
+                    click: () => trigger("reset")
                 }, "Reset")
             )
         ]);
 
         pfusch("counter-display", {
             count: 0,
-            eventIncrement: ".increment",
-            eventDecrement: ".decrement",
-            eventReset: ".reset"
+            eventIncrement: "",
+            eventDecrement: "",
+            eventReset: ""
         }, (state) => [
             css`
-                .counter-display-container {
-                    border: 2px dashed #28a745;
+                .counter-display {
+                    border: 2px dashed #41b883;
                     padding: 20px;
                     border-radius: 8px;
                     text-align: center;
-                    margin: 20px 0;
                 }
                 .count-value {
                     font-size: 32px;
                     font-weight: bold;
-                    color: #28a745;
-                    margin: 15px 0;
+                    color: #41b883;
                 }
             `,
-            script(function () {
-                // Listen for events on window
-                this._inc = () => { state.count++;; };
+            script(function() {
+                this._inc = () => { state.count++; };
                 this._dec = () => { state.count--; };
                 this._reset = () => { state.count = 0; };
                 window.addEventListener(state.eventIncrement, this._inc);
                 window.addEventListener(state.eventDecrement, this._dec);
                 window.addEventListener(state.eventReset, this._reset);
-                // Clean up listeners on disconnect
                 this.component.addEventListener("disconnected", () => {
                     window.removeEventListener(state.eventIncrement, this._inc);
                     window.removeEventListener(state.eventDecrement, this._dec);
                     window.removeEventListener(state.eventReset, this._reset);
                 });
             }),
-            html.div({ class: "counter-display-container" },
-                html.h3(html.slot()),
+            html.div({ class: "counter-display" },
                 html.div({ class: "count-value" }, `Count: ${state.count}`)
             )
         ]);
 
-
-        // 3. Form input component with live character counter and proper validation
+        // Form Input Component
         pfusch("my-input", {
             name: "",
             placeholder: "",
@@ -513,84 +700,57 @@
                     border-radius: 4px;
                     font-size: 14px;
                     box-sizing: border-box;
-                    transition: border-color 0.2s ease, box-shadow 0.2s ease;
                 }
                 input:focus {
                     outline: none;
-                    border-color: #007bff;
-                    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-                }
-                input:invalid {
-                    border-color: #dc3545;
-                    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+                    border-color: #667eea;
                 }
                 input.custom-invalid {
                     border-color: #dc3545;
-                    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
                 }
                 input.custom-valid {
-                    border-color: #28a745;
-                    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+                    border-color: #41b883;
                 }
                 .char-counter {
                     font-size: 12px;
                     color: #666;
                     margin-top: 4px;
                 }
-                .char-counter.warning {
-                    color: #ff6b35;
-                }
-                .char-counter.over-limit {
-                    color: #dc3545;
-                    font-weight: bold;
-                }
                 .error-message {
                     color: #dc3545;
                     font-size: 12px;
                     margin-top: 4px;
-                    font-weight: 500;
                 }
                 .valid-message {
-                    color: #28a745;
+                    color: #41b883;
                     font-size: 12px;
                     margin-top: 4px;
                 }
             `,
-            script(function () {
+            script(function() {
                 let inputElement = null;
-                // Use the component context provided by the script execution
                 const componentContext = this.component;
 
-                // Enhanced validation function
                 const validateInput = (value = state.value, showErrors = state.hasBlurred) => {
                     let errorMessage = '';
                     let isValid = true;
 
-                    // Required field validation
                     if (state.required && (!value || value.trim() === '')) {
                         errorMessage = 'This field is required';
                         isValid = false;
-                    }
-                    // Email validation
-                    else if (state.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                    } else if (state.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
                         errorMessage = 'Please enter a valid email address';
                         isValid = false;
-                    }
-                    // Max length validation
-                    else if (value && value.length > state.maxLength) {
+                    } else if (value && value.length > state.maxLength) {
                         errorMessage = `Maximum ${state.maxLength} characters allowed`;
                         isValid = false;
                     }
 
-                    // Only show error message if the user has interacted with the field
                     state.errorMessage = showErrors ? errorMessage : '';
                     state.isValid = isValid;
 
-                    // Set custom validity for native browser tooltips
                     if (inputElement) {
                         inputElement.setCustomValidity(errorMessage);
-
-                        // Add visual classes based on validation state
                         inputElement.classList.remove('custom-valid', 'custom-invalid');
                         if (showErrors) {
                             if (isValid && value) {
@@ -601,7 +761,6 @@
                         }
                     }
 
-                    // Trigger validation event for form-level handling
                     trigger('validation', {
                         name: state.name,
                         isValid,
@@ -612,21 +771,14 @@
                     return isValid;
                 };
 
-                // Subscribe to value changes for real-time validation
                 state.subscribe('value', (newValue) => {
                     validateInput(newValue, state.hasBlurred);
                 });
 
-                // Subscribe to required changes
-                state.subscribe('required', () => {
-                    validateInput(state.value, state.hasBlurred);
-                });
-
-                // Store reference to input element for validation
                 setTimeout(() => {
                     if (componentContext && componentContext.shadowRoot) {
                         inputElement = componentContext.shadowRoot.querySelector('input');
-                        validateInput(state.value, false); // Initial validation without showing errors
+                        validateInput(state.value, false);
                     }
                 }, 0);
             }),
@@ -645,7 +797,6 @@
                     },
                     keydown: (e) => {
                         if (e.key === "Enter") {
-                            // Bubble a submit event up from the custom element host
                             const host = e.target.getRootNode().host;
                             if (host) {
                                 host.dispatchEvent(new CustomEvent("submit", {
@@ -655,19 +806,13 @@
                             }
                         }
                     },
-                    blur: (e) => {
+                    blur: () => {
                         state.hasBlurred = true;
-                    },
-                    focus: (e) => {
-                        // Clear invalid styling on focus to give user a fresh start
-                        e.target.classList.remove('custom-invalid');
                     }
                 }),
                 html.div({
                     id: `counter-${state.name}`,
-                    class: `char-counter ${state.value.length > state.maxLength ? 'over-limit' :
-                            state.value.length > state.maxLength * 0.8 ? 'warning' : ''
-                        }`
+                    class: 'char-counter'
                 }, `${state.value.length}/${state.maxLength} characters`),
                 state.errorMessage ?
                     html.div({ class: "error-message" }, state.errorMessage) :
@@ -676,72 +821,23 @@
             )
         ]);
 
-        // Form validator component to manage form-level validation
+        // Form validator
         pfusch("form-validator", {
             fieldStates: new Map(),
             isFormValid: false
         }, (state, trigger, { children }) => [
-            css`
-                .form-container {
-                    padding: 20px;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    background: #f8f9fa;
-                }
-                button[type="submit"]:disabled {
-                    background: #6c757d;
-                    cursor: not-allowed;
-                    opacity: 0.6;
-                }
-                button[type="submit"] {
-                    background: #007bff;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 16px;
-                    margin-top: 10px;
-                    transition: background-color 0.2s ease;
-                }
-                button[type="submit"]:not(:disabled):hover {
-                    background: #0056b3;
-                }
-                .form-status {
-                    margin-top: 10px;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-size: 14px;
-                }
-                .form-status.invalid {
-                    background: #f8d7da;
-                    color: #721c24;
-                    border: 1px solid #f1aeb5;
-                }
-                .form-status.valid {
-                    background: #d1e7dd;
-                    color: #0a3622;
-                    border: 1px solid #a3cfbb;
-                }
-            `,
-            script(function () {
-                // Use the component context provided by the script execution
+            script(function() {
                 const componentContext = this.component;
 
-                // Listen for validation events from child inputs
                 componentContext.addEventListener('my-input.validation', (e) => {
                     const { name, isValid, errorMessage, value } = e.detail;
-
-                    // Update field state
                     state.fieldStates.set(name, { isValid, errorMessage, value, hasValue: !!value });
 
-                    // Check overall form validity
                     const allValid = Array.from(state.fieldStates.values()).every(field => field.isValid);
                     const hasRequiredFields = Array.from(state.fieldStates.values()).some(field => field.hasValue);
 
                     state.isFormValid = allValid && hasRequiredFields;
 
-                    // Update submit button state
                     setTimeout(() => {
                         if (componentContext && componentContext.shadowRoot) {
                             const submitButton = componentContext.shadowRoot.querySelector('button[type="submit"]');
@@ -752,7 +848,6 @@
                     }, 0);
                 });
 
-                // Initial state - disable submit button
                 setTimeout(() => {
                     if (componentContext && componentContext.shadowRoot) {
                         const submitButton = componentContext.shadowRoot.querySelector('button[type="submit"]');
@@ -762,18 +857,10 @@
                     }
                 }, 0);
             }),
-            html.div({ class: "form-container" },
-                html.slot(),
-                state.fieldStates.size > 0 && !state.isFormValid ?
-                    html.div({ class: "form-status invalid" },
-                        "Please fix validation errors before submitting") :
-                    (state.isFormValid ?
-                        html.div({ class: "form-status valid" },
-                            "✓ Form is ready to submit") : null)
-            )
+            html.slot()
         ]);
 
-        // 4. Todo app with component composition
+        // Todo item
         pfusch("todo-item", { id: "", text: "", completed: false }, (state, trigger) => [
             css`
                 .todo-item {
@@ -819,7 +906,8 @@
             )
         ]);
 
-        pfusch("todo-app", { todos: [], nextId: 1 }, (state, trigger) => [
+        // Todo app
+        pfusch("todo-app", { todos: [], nextId: 1 }, (state) => [
             css`
                 .todo-app {
                     max-width: 500px;
@@ -874,7 +962,6 @@
                                     text: e.target.value.trim(),
                                     completed: false
                                 }];
-                                state.newTodo = e.target.value;
                                 e.target.value = '';
                             }
                         }
@@ -903,98 +990,102 @@
             )
         ]);
 
-        // 5. Progressive enhancement example
-        pfusch("enhanced-table", { data: [], loadTriggered: false }, (state) => [
-            css`
-                :host {
-                    display: block;    tbody
-                    margin: 20px;
-                    padding: 20px;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-                th, td {
-                    padding: 12px;
-                    text-align: left;
-                    border-bottom: 1px solid #ddd;
-                }
-                th {
-                    background-color: #f8f9fa;
-                }
-                tr:hover {
-                    background-color: #f1f1f1;
-                }
-            `,
-            script(async function () {
-                // Simulate loading data
-                state.subscribe('loadTriggered', async () => {
-                    // Simulate an API call to fetch data
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-
-                    state.data = [
-                        { name: "Component 1", status: "Active" },
-                        { name: "Component 2", status: "Inactive" },
-                        { name: "Component 3", status: "Pending" }
-                    ];
-                });
-                state.subscribe('data', (newData) => {
-                    const tbody = this.component.querySelector('tbody');
-                    if (tbody) {
-                        tbody.innerHTML = "";
-                        state.data.forEach(item =>
-                            tbody.appendChild(html.tr(
-                                { class: item.status.toLowerCase() },
-                                html.td(item.name),
-                                html.td(item.status)
-                            ).element)
-                        );
+                // Enhanced table (sortable)
+        pfusch("enhanced-table", { sortBy: null, items: [], columns: [], loading: true }, (state, trigger, { children }) => {
+            const sortItems = (items, sortBy) => {
+                if (!sortBy) return items;
+                return [...items].sort((a, b) => 
+                    String(a[sortBy]).localeCompare(String(b[sortBy]))
+                );
+            };
+            
+            return [
+                css`
+                    :host {
+                        display: block;
                     }
-                });
-            }),
-            html.slot(),
-            state.loadTriggered ? null : html.div({ class: "load-button" },
-                html.button({
-                    id: "load-data-btn",
-                    click: (e) => {
-                        state.loadTriggered = true;
+                    .table-controls {
+                        margin-bottom: 15px;
                     }
-                }, "Load Data")
-            )
-        ]);
-
-        // Listen for global events
-        window.addEventListener('message', (event) => {
-            if (event.data.eventName) {
-                console.log('Global event:', event.data);
-                if (event.data.eventName.includes('incremented')) {
-                    document.body.classList.add('bg-incremented');
-                    setTimeout(() => {
-                        document.body.classList.remove('bg-incremented');
-                    }, 1000);
-                } else if (event.data.eventName.includes('decremented')) {
-                    document.body.classList.add('bg-decremented');
-                    setTimeout(() => {
-                        document.body.classList.remove('bg-decremented');
-                    }, 1000);
-                }
-            }
+                    button {
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        margin-right: 10px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    }
+                    button:hover {
+                        background: #5568d3;
+                    }
+                `,
+                script(function() {
+                    // Extract data from original table in light DOM
+                    const tables = children('table');
+                    if (tables && tables.length > 0) {
+                        const table = tables[0];
+                        
+                        // Extract column headers
+                        const headers = Array.from(table.querySelectorAll('thead th'));
+                        state.columns = headers.map(th => ({
+                            name: th.textContent.trim(),
+                            key: th.textContent.trim().toLowerCase()
+                        }));
+                        
+                        // Extract rows and build items dynamically
+                        const rows = Array.from(table.querySelectorAll('tbody tr'));
+                        state.items = rows.map(row => {
+                            const cells = row.querySelectorAll('td');
+                            const item = {};
+                            state.columns.forEach((col, index) => {
+                                item[col.key] = cells[index]?.textContent?.trim() || '';
+                            });
+                            return item;
+                        });
+                    }
+                    state.loading = false;
+                }),
+                // Add interactive controls
+                html.div({ class: "table-controls" },
+                    html.button({ 
+                        id: "clear-sort-btn",
+                        click: () => state.sortBy = null
+                    }, "Clear Sort"),
+                    ...state.columns.map((col) => 
+                        html.button({ 
+                            id: `sort-${col.key}-btn`,
+                            click: () => state.sortBy = col.key
+                        }, `Sort by ${col.name}`)
+                    ),
+                ),
+                // Show original content while loading, then show sorted data
+                state.loading 
+                    ? html.slot()
+                    : html.table({ class: "pure-table pure-table-bordered" },
+                        html.thead(
+                            html.tr(
+                                ...state.columns.map(col => html.th(col.name))
+                            )
+                        ),
+                        html.tbody(
+                            ...sortItems(state.items, state.sortBy).map(item =>
+                                html.tr(
+                                    ...state.columns.map(col => html.td(item[col.key]))
+                                )
+                            )
+                        )
+                    )
+            ];
         });
 
-        // Enhanced form submission handler with proper validation
+        // Form submission handler
         document.addEventListener('submit', (e) => {
             if (e.target.id === 'test-form') {
                 e.preventDefault();
 
-                // Get the form validator component
                 const formValidator = e.target.closest('form-validator');
-
                 if (!formValidator || !formValidator.state.isFormValid) {
-                    // Show native validation messages for any invalid fields
                     const customInputs = e.target.querySelectorAll('my-input');
                     let firstInvalidField = null;
 
@@ -1004,32 +1095,24 @@
                             if (!firstInvalidField) {
                                 firstInvalidField = shadowInput;
                             }
-                            // Trigger the browser's native validation UI
                             shadowInput.reportValidity();
                         }
                     });
 
-                    // Focus the first invalid field
                     if (firstInvalidField) {
                         firstInvalidField.focus();
                     }
-
                     return;
                 }
 
-                // Form is valid, collect data and submit
                 const customInputs = e.target.querySelectorAll('my-input');
                 const formData = {};
-
                 customInputs.forEach(input => {
-                    const name = input.getAttribute('name');
-                    const value = input.state ? input.state.value : '';
-                    formData[name] = value;
+                    formData[input.getAttribute('name')] = input.state ? input.state.value : '';
                 });
 
-                console.log('Form submitted successfully:', formData);
+                console.log('Form submitted:', formData);
 
-                // Show success message
                 const submitButton = e.target.querySelector('button[type="submit"]');
                 const originalText = submitButton.textContent;
                 submitButton.textContent = '✓ Submitted!';
@@ -1038,8 +1121,6 @@
                 setTimeout(() => {
                     submitButton.textContent = originalText;
                     submitButton.disabled = false;
-
-                    // Optional: Clear form
                     customInputs.forEach(input => {
                         if (input.state) {
                             input.state.value = '';
@@ -1052,5 +1133,4 @@
         });
     </script>
 </body>
-
 </html>
