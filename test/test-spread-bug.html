@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spread Operator Bug Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .test-section.broken {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+
+        .test-section.working {
+            border-color: #4caf50;
+            background: #e8f5e9;
+        }
+
+        button {
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            padding: 0.5rem 1rem;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #f0f0f0;
+        }
+
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Spread Operator Bug Reproduction</h1>
+    <p>This test demonstrates a bug in pfusch when using spread operator with <code>.map()</code> to create buttons.</p>
+
+    <div class="test-section broken">
+        <h2>❌ BROKEN: Spread buttons first, clear button last</h2>
+        <p>Click "Button A" - it should log "A" but logs "CLEAR" instead (wrong handler)</p>
+        <broken-example id="broken-example"></broken-example>
+        <div class="result" id="broken-result">Click a button...</div>
+    </div>
+
+    <div class="test-section working">
+        <h2>✅ WORKING: Clear button first, spread buttons last</h2>
+        <p>Click "Button A" - it correctly logs "A"</p>
+        <working-example id="working-example"></working-example>
+        <div class="result" id="working-result">Click a button...</div>
+    </div>
+
+    <script type="module">
+        import { pfusch, html, script } from '../pfusch.js';
+
+        const items = ['A', 'B', 'C'];
+
+        // BROKEN: buttons first, clear button last
+        pfusch("broken-example", { loading: true, items: [] }, (state) => [
+            script(async function () {
+                // Simulate async data loading
+                await new Promise(res => setTimeout(res, 100));
+                state.items = items;
+                state.loading = false;
+            }),
+            html.div(
+                { id: 'broken-test' },
+                state.items.map(item =>
+                    html.button({
+                        id: `broken-btn-${item.toLowerCase()}`,
+                        click: () => {
+                            const msg = `Clicked: ${item}`;
+                            console.log('BROKEN:', msg);
+                            document.getElementById('broken-result').textContent = msg;
+                        }
+                    }, `Button ${item}`)
+                ),
+                html.button({
+                    id: 'broken-clear-btn',
+                    click: () => {
+                        const msg = 'Clicked: CLEAR';
+                        console.log('BROKEN:', msg);
+                        document.getElementById('broken-result').textContent = msg;
+                    }
+                }, 'Clear')
+            )])
+
+        // WORKING: Clear button first, spread buttons last
+        pfusch("working-example", { loading: true, items: [] }, (state) => [
+            script(async function () {
+                // Simulate async data loading
+                await new Promise(res => setTimeout(res, 100));
+                state.items = items;
+                state.loading = false;
+            }),
+            html.div(
+                { id: 'working-test' },
+                html.button({
+                    id: 'working-clear-btn',
+                    click: () => {
+                        const msg = 'Clicked: CLEAR';
+                        console.log('WORKING:', msg);
+                        document.getElementById('working-result').textContent = msg;
+                    }
+                }, 'Clear'),
+                state.items.map(item =>
+                    html.button({
+                        id: `working-btn-${item.toLowerCase()}`,
+                        click: () => {
+                            const msg = `Clicked: ${item}`;
+                            console.log('WORKING:', msg);
+                            document.getElementById('working-result').textContent = msg;
+                        }
+                    }, `Button ${item}`)
+                )
+            )])
+    </script>
+</body>
+
+</html>

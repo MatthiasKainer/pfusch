@@ -9,11 +9,12 @@ export const script = js => ({ type: 'script', content: js });
 const addAttr = (el) => ([k, v]) => {
     if (+k == k) return;
     if (typeof v === 'function') {
-        el._re ??= [];
-        if (el._re.indexOf(k) < 0) {
-            el.addEventListener(k, v);
-            el._re.push(k);
+        el._re ??= {};
+        if (el._re[k]) {
+            el.removeEventListener(k, el._re[k]);
         }
+        el.addEventListener(k, v);
+        el._re[k] = v;
     } else if (typeof v === o && el.state) {
         el.state[k] = v;
     } else {
@@ -283,6 +284,25 @@ export function pfusch(tagName, initialState, template) {
             const props = ['checked', 'selected', 'disabled', 'readonly', 'multiple'];
             const upd = (o, n) => {
                 if (o.tagName !== n.tagName) { o.replaceWith(n); return; }
+                // Transfer event listeners from new element to old element
+                if (n._re) {
+                    o._re ??= {};
+                    for (const [eventType, handler] of Object.entries(n._re)) {
+                        if (o._re[eventType] !== handler) {
+                            if (o._re[eventType]) {
+                                o.removeEventListener(eventType, o._re[eventType]);
+                            }
+                            o.addEventListener(eventType, handler);
+                            o._re[eventType] = handler;
+                        }
+                    }
+                    for (const eventType of Object.keys(o._re)) {
+                        if (!n._re[eventType]) {
+                            o.removeEventListener(eventType, o._re[eventType]);
+                            delete o._re[eventType];
+                        }
+                    }
+                }
                 for (const a of n.attributes) { if (o.getAttribute(a.name) !== a.value) o.setAttribute(a.name, a.value); }
                 for (const a of Array.from(o.attributes)) { if (a.name !== 'id' && !n.hasAttribute(a.name)) o.removeAttribute(a.name); }
                 for (const p of props) { if (n[p] !== undefined && n[p] !== o[p]) { try { o[p] = n[p]; } catch { } } }
