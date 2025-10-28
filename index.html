@@ -476,37 +476,27 @@ pfusch("counter-display", { count: 0, eventIncrement: "" }, (state) => [
                     </enhanced-table>
                 </div>                <div class="example-code">
                     <pre><code>// can be any table
-&lt;table>
-  &lt;thead>
-    &lt;tr>
-      &lt;th>Name>&lt;/th>
-      &lt;th>Status>&lt;/th>
-      &lt;th>Priority>&lt;/th>
-    &lt;/tr>
-  &lt;/thead>
-  &lt;tbody>
-    &lt;tr>
-      &lt;td>Zebra Project>&lt;/td>
-      &lt;td>Active>&lt;/td>
-      &lt;td>High>&lt;/td>
-    &lt;/tr>
-    &lt;tr>
-      &lt;td>Apple Initiative>&lt;/td>
-      &lt;td>Pending>&lt;/td>
-      &lt;td>Low>&lt;/td>
-    &lt;/tr>
-    &lt;tr>
-      &lt;td>Mango Task>&lt;/td>
-      &lt;td>Active>&lt;/td>
-      &lt;td>Medium>&lt;/td>
-    &lt;/tr>
-    &lt;tr>
-      &lt;td>Banana Feature>&lt;/td>
-      &lt;td>Completed>&lt;/td>
-      &lt;td>High>&lt;/td>
-    &lt;/tr>
-  &lt;/tbody>
-&lt;/table>
+&lt;enhanced-table>
+    &lt;table>
+        &lt;thead>
+            &lt;tr>
+                &lt;th>Name>&lt;/th>
+                &lt;th>Status>&lt;/th>
+                &lt;th>Priority>&lt;/th>
+            &lt;/tr>
+        &lt;/thead>
+        &lt;tbody>
+            &lt;tr>
+                &lt;td>Zebra Project>&lt;/td>
+                &lt;td>Active>&lt;/td>
+                &lt;td>High>&lt;/td>
+            &lt;/tr>
+            &lt;tr>
+            ...
+            &lt;/tr>
+        &lt;/tbody>
+    &lt;/table>
+&lt;enhanced-table>
 ----
 pfusch("enhanced-table", { sortBy: null, items: [], columns: [] }, 
   (state, trigger, { children }) => {
