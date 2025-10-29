@@ -340,7 +340,13 @@
                 </div>
                 
                 <div class="example-code">
-                    <pre><code>// Component that triggers events
+                    <pre><code>
+&lt;event-counter&gt;&lt;/event-counter&gt;
+&lt;counter-display 
+    eventIncrement="event-counter.increment"&gt;
+&lt;/counter-display&gt;
+---
+// Component that triggers events
 pfusch("event-counter", {}, (state, trigger) => [
   html.button({ 
     click: () => trigger("increment") 
