@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter Test</title>
+</head>
+<body>
+    <h1>Counter Test</h1>
+
+    <live-counter></live-counter>
+    <script type="module">
+      import { pfusch, html } from "../pfusch.js";
+
+      pfusch("live-counter", { count: 0 }, (state) => [
+        html.div(
+          html.p(`Counting: ${state.count}`),
+          html.button({ click: () => state.count++ }, "Increment")
+        )
+      ]);
+    </script>
+</body>
+</html>

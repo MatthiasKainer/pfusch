@@ -20,7 +20,7 @@ test.describe('Index Page Documentation', () => {
         await expect(stats).toHaveCount(3);
         
         // Verify key numbers
-        await expect(page.locator('.stat-value').first()).toContainText('286');
+        await expect(page.locator('.stat-value').first()).toContainText('336');
         await expect(page.getByText('3.0K')).toBeVisible();
         await expect(page.getByText('0', { exact: true }).first()).toBeVisible();
     });
