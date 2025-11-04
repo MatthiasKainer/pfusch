@@ -305,33 +305,43 @@ Decouple components with window events:
   import { pfusch, html, script } from "./pfusch.js";
   
   pfusch("search-box", { query: "" }, (state, trigger) => [
-    html.input({ 
-      input: (e) => {
-        state.query = e.target.value;
-        trigger("search", { query: state.query });
-      }
-    })
-  ]);
+      html.form({
+        submit: async (e) => {
+          e.preventDefault();
+          const data = new FormData(e.target);
+          state.query = data.get("query") || "";
+          trigger("search", { query: state.query });
+        }
+      },
+        html.input({
+          name: "query",
+          type: "search",
+          value: state.query,
+          placeholder: "Search..."
+        }),
+        html.button({ type: "submit" }, "Search")
+      )
+    ]);
   
   pfusch("results-list", { items: [] }, (state, trigger) => [
-    script(function() {
-      window.addEventListener("search-box.search", async (e) => {
-        const res = await fetch(`/api/search?q=${e.detail.query}`);
-        state.items = await res.json();
-        trigger("updated", state.items);
-      });
-    }),
-    html.ul(...state.items.map(item => html.li(item.name)))
-  ]);
+      script(function() {
+        window.addEventListener("search-box.search", async (e) => {
+          const res = await fetch(`/api/search?q=${encodeURIComponent(e.detail.query)}`);
+          state.items = await res.json();
+          trigger("updated", state.items);
+        });
+      }),
+      html.ul(...state.items.map(item => html.li(item.name)))
+    ]);
   
   pfusch("results-count", { count: 0 }, (state) => [
-    script(function() {
-      window.addEventListener("results-list.updated", (e) => {
-        state.count = e.detail.length;
-      });
-    }),
-    html.div(`Found ${state.count} results`)
-  ]);
+      script(function() {
+        window.addEventListener("results-list.updated", (e) => {
+          state.count = Array.isArray(e.detail) ? e.detail.length : 0;
+        });
+      }),
+      html.div(`Found ${state.count} results`)
+    ]);
 </script>
 ```
 
@@ -502,12 +512,15 @@ pfusch("hello-world", { who: "world" }, (state) => [
 
 // With events
 pfusch("click-counter", { count: 0 }, (state, trigger) => [
-  html.button({ 
-    click: () => {
+  html.form({
+    submit: (e) => {
+      e.preventDefault();
       state.count++;
       trigger("counted", state.count);
     }
-  }, `Clicked ${state.count} times`)
+  },
+    html.button({ type: "submit" }, `Clicked ${state.count} times`)
+  )
 ]);
 
 // With async data
@@ -730,18 +743,23 @@ pfusch("my-dialog", {
   item: "",
   result: null
 }, (state, trigger) => [
-  html.input({
-    value: state.item,
-    keydown: e => {
-      if (e.key === "Enter") {
-        // State mutation triggers selective re-render
+    html.form({
+      submit: (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        state.item = data.get("item") || "";
         state.result = "Starting the thing!";
-        trigger("generate", { item: e.target.value });
+        trigger("generate", { item: state.item });
       }
-    }
-  }),
-  // Only this part re-renders when state.result changes
-  state.result ? html.div({ class: "result" }, state.result) : null
+    },
+      html.input({
+        name: "item",
+        value: state.item,
+        placeholder: "Type and submit"
+      }),
+      html.button({ type: "submit" }, "Go")
+    ),
+    state.result ? html.div({ class: "result" }, state.result) : null
 ]);
 ```
 
@@ -772,7 +790,8 @@ Event names in pfusch are the standard DOM event names (click, keydown, change),
 
 ```javascript
 html.input({
-  change: e => state.value = e.target.value // Don't pass it as a prop, just mutate state directly
+  name: "value"
+})
 })
 ```
 

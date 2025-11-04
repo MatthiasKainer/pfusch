@@ -573,57 +573,57 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
 
         // Counter Component
         pfusch("my-counter", { count: 0 }, (state, trigger) => [
-            css`
-                .counter-container {
-                    border: 2px solid #667eea;
-                    padding: 20px;
-                    border-radius: 8px;
-                    text-align: center;
-                }
-                .count-display {
-                    font-size: 32px;
-                    font-weight: bold;
-                    color: #667eea;
-                    margin: 15px 0;
-                }
-                button {
-                    background: #667eea;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    margin: 0 5px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-                button:hover {
-                    background: #5568d3;
-                }
-            `,
-            html.div({ class: "counter-container" },
-                html.div({ class: "count-display" }, `Count: ${state.count}`),
-                html.button({
-                    id: "increment-btn",
-                    click: () => {
-                        state.count++;
-                        trigger("incremented", { newValue: state.count });
+                css`
+                    .counter-container {
+                        border: 2px solid #667eea;
+                        padding: 20px;
+                        border-radius: 8px;
+                        text-align: center;
                     }
-                }, "Increment"),
-                html.button({
-                    id: "decrement-btn",
-                    click: () => {
-                        state.count--;
-                        trigger("decremented", { newValue: state.count });
+                    .count-display {
+                        font-size: 32px;
+                        font-weight: bold;
+                        color: #667eea;
+                        margin: 15px 0;
                     }
-                }, "Decrement"),
-                html.button({
-                    id: "reset-btn",
-                    click: () => {
-                        state.count = 0;
-                        trigger("reset", { newValue: 0 });
+                    button {
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        margin: 0 5px;
+                        border-radius: 4px;
+                        cursor: pointer;
                     }
-                }, "Reset")
-            )
-        ]);
+                    button:hover {
+                        background: #5568d3;
+                    }
+                `,
+                html.form({
+                    class: "counter-container",
+                    submit: (e) => {
+                        e.preventDefault();
+                        const data = new FormData(e.target);
+                        const action = data.get("action");
+                        console.log("Action:", action);
+                        if (action === "increment") {
+                            state.count++;
+                            trigger("incremented", { newValue: state.count });
+                        } else if (action === "decrement") {
+                            state.count--;
+                            trigger("decremented", { newValue: state.count });
+                        } else if (action === "reset") {
+                            state.count = 0;
+                            trigger("reset", { newValue: 0 });
+                        }
+                    }
+                },
+                    html.div({ class: "count-display" }, `Count: ${state.count}`),
+                    html.button({ type: "submit", name: "action", value: "increment", id: "increment-btn" }, "Increment"),
+                    html.button({ type: "submit", name: "action", value: "decrement", id: "decrement-btn" }, "Decrement"),
+                    html.button({ type: "submit", name: "action", value: "reset", id: "reset-btn" }, "Reset")
+                )
+            ]);
 
         // Event-driven counter
         pfusch("event-counter", {}, (state, trigger) => [
@@ -937,87 +937,95 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
 
         // Todo app
         pfusch("todo-app", { todos: [], nextId: 1 }, (state) => [
-            css`
-                .todo-app {
-                    max-width: 500px;
-                    margin: 20px auto;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }
-                .todo-header {
-                    background: #f8f9fa;
-                    padding: 20px;
-                    border-bottom: 1px solid #ddd;
-                }
-                .todo-input {
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 16px;
-                    box-sizing: border-box;
-                }
-                .todo-list {
-                    max-height: 300px;
-                    overflow-y: auto;
-                }
-                .empty-state {
-                    padding: 40px;
-                    text-align: center;
-                    color: #6c757d;
-                }
-            `,
-            script(() => {
-                state.subscribe('todos', (newTodos) => {
-                    if (Array.isArray(newTodos) && newTodos.length > 0) {
-                        const maxId = Math.max(...newTodos.map(todo => todo.id));
-                        if (maxId >= state.nextId) {
-                            state.nextId = maxId + 1;
-                        }
+                css`
+                    .todo-app {
+                        max-width: 500px;
+                        margin: 20px auto;
+                        border: 1px solid #ddd;
+                        border-radius: 8px;
+                        overflow: hidden;
                     }
-                });
-            }),
-            html.div({ class: "todo-app" },
-                html.div({ class: "todo-header" },
-                    html.h3("Todo List"),
-                    html.input({
-                        class: "todo-input",
-                        placeholder: "Add a new todo...",
-                        keydown: (e) => {
-                            if (e.key === 'Enter' && e.target.value.trim()) {
-                                state.todos = [...state.todos, {
-                                    id: state.nextId++,
-                                    text: e.target.value.trim(),
-                                    completed: false
-                                }];
-                                e.target.value = '';
+                    .todo-header {
+                        background: #f8f9fa;
+                        padding: 20px;
+                        border-bottom: 1px solid #ddd;
+                    }
+                    .todo-input {
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid #ddd;
+                        border-radius: 4px;
+                        font-size: 16px;
+                        box-sizing: border-box;
+                    }
+                    .todo-list {
+                        max-height: 300px;
+                        overflow-y: auto;
+                    }
+                    .empty-state {
+                        padding: 40px;
+                        text-align: center;
+                        color: #6c757d;
+                    }
+                `,
+                script(() => {
+                    state.subscribe('todos', (newTodos) => {
+                        if (Array.isArray(newTodos) && newTodos.length > 0) {
+                            const maxId = Math.max(...newTodos.map(todo => todo.id));
+                            if (maxId >= state.nextId) {
+                                state.nextId = maxId + 1;
                             }
                         }
-                    })
-                ),
-                html.div({ class: "todo-list" },
-                    state.todos.length === 0
-                        ? html.div({ class: "empty-state" }, "No todos yet. Add one above!")
-                        : state.todos.map(todo =>
-                            html["todo-item"]({
-                                ...todo,
-                                "todo-item.toggle": (e) => {
-                                    const index = state.todos.findIndex(t => t.id === e.detail.id);
-                                    if (index >= 0) {
-                                        const newTodos = [...state.todos];
-                                        newTodos[index] = { ...newTodos[index], ...e.detail };
-                                        state.todos = newTodos;
-                                    }
-                                },
-                                "todo-item.delete": (e) => {
-                                    state.todos = state.todos.filter(t => t.id !== e.detail.id);
+                    });
+                }),
+                html.div({ class: "todo-app" },
+                    html.div({ class: "todo-header" },
+                        html.h3("Todo List"),
+                        html.form({
+                            submit: (e) => {
+                                e.preventDefault();
+                                const data = new FormData(e.target);
+                                const todoText = data.get("todo-text");
+                                if (todoText && todoText.trim()) {
+                                    state.todos = [...state.todos, {
+                                        id: state.nextId++,
+                                        text: todoText.trim(),
+                                        completed: false
+                                    }];
+                                    e.target.reset();
                                 }
-                            })
+                            }
+                        },
+                            html.input({
+                                class: "todo-input",
+                                name: "todo-text",
+                                placeholder: "Add a new todo..."
+                            }),
+                            html.button({ type: "submit" }, "Add")
                         )
+                    ),
+                    html.div({ class: "todo-list" },
+                        state.todos.length === 0
+                            ? html.div({ class: "empty-state" }, "No todos yet. Add one above!")
+                            : state.todos.map(todo =>
+                                html["todo-item"]({
+                                    ...todo,
+                                    "todo-item.toggle": (e) => {
+                                        const index = state.todos.findIndex(t => t.id === e.detail.id);
+                                        if (index >= 0) {
+                                            const newTodos = [...state.todos];
+                                            newTodos[index] = { ...newTodos[index], ...e.detail };
+                                            state.todos = newTodos;
+                                        }
+                                    },
+                                    "todo-item.delete": (e) => {
+                                        state.todos = state.todos.filter(t => t.id !== e.detail.id);
+                                    }
+                                })
+                            )
+                    )
                 )
-            )
-        ]);
+            ]);
 
                 // Enhanced table (sortable)
         pfusch("enhanced-table", { sortBy: null, items: [], columns: [], loading: true }, (state, trigger, { children }) => {
