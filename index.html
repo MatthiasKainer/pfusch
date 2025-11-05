@@ -551,6 +551,71 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
 });</code></pre>
                 </div>
             </div>
+
+            
+        <!-- Example 6: Feedback Panel -->
+        <div class="example-card">
+                <div class="example-header">
+                        <h3 class="example-title">Feedback Panel</h3>
+                        <p class="example-description">Server-friendly form integration with local history and status</p>
+                </div>
+
+                <div class="example-demo">
+                    <div class="dashboard">
+                        <feedback-panel>
+                            <form method='post' action='https://jsonplaceholder.typicode.com/todos' class="pure-form">
+                                <label>Comment <input name='comment' placeholder='Say hi'></label>
+                                <button type='submit' class="pure-button pure-button-primary">Send</button>
+                            </form>
+                        </feedback-panel>
+                    </div>
+                </div>
+
+                <div class="example-code">
+                        <pre><code>&lt;div class="dashboard"&gt;
+        &lt;feedback-panel&gt;
+            &lt;form method='post' action='https://jsonplaceholder.typicode.com/todos'&gt;
+                &lt;label&gt;Comment&lt;input name='comment' placeholder='Say hi'&gt;&lt;/label&gt;
+                &lt;button type='submit'&gt;Send&lt;/button&gt;
+            &lt;/form&gt;
+        &lt;/feedback-panel&gt;
+&lt;/div&gt;
+
+&lt;script type="module"&gt;
+    import { pfusch, html, script } from './pfusch.js';
+    pfusch('feedback-panel', { status: 'idle', history: [] }, (state, trigger, { children }) => [
+        script(function() {
+            const [form] = children('form');
+            if (!form) return;
+            const textarea = form.querySelector('textarea, input[name=\'comment\']');
+            form.addEventListener('submit', async (event) =&gt; {
+                event.preventDefault();
+                state.status = 'saving';
+                const payload = new FormData(form);
+                await fetch(form.action || '#', { method: form.method || 'post', body: payload });
+                const text = textarea ? textarea.value : '';
+                state.history = [{ text, at: Date.now() }, ...state.history].slice(0, 5);
+                state.status = 'saved';
+                trigger('submitted', { text });
+            });
+        }),
+        html.slot(),
+        html.div({ class: 'status' }, state.status),
+        html.ul(
+            ...state.history.map((item) =&gt;
+                html.li(
+                    html.time(new Date(item.at).toLocaleTimeString()),
+                    html.span(' ', item.text)
+                )
+            )
+        )
+    ]);
+    window.addEventListener('feedback-panel.submitted', (event) =&gt; {
+        console.log('Feedback event', event.detail);
+    });
+&lt;/script&gt;</code></pre>
+            </div>
+        </div>
         </div>
 
         <!-- CTA -->
@@ -1115,6 +1180,44 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
                     )
             ];
         });
+
+        // Feedback panel component (form + history + submission)
+        pfusch('feedback-panel', { status: 'idle', history: [] }, (state, trigger, { children }) => [
+            css`
+                .feedback-history { list-style: none; padding: 0; margin: 0.5rem 0 0 0; }
+                .feedback-history li { padding: 6px 8px; border-bottom: 1px solid var(--border-color); }
+                .feedback-history time { color: var(--text-light); margin-right: 0.5rem; font-size: 0.85rem; }
+                .status { margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-light); }
+            `,
+            script(function() {
+                const [form] = children('form');
+                if (!form) return;
+                const textarea = form.querySelector('textarea, input[name="comment"]');
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    state.status = 'saving';
+                    const payload = new FormData(form);
+                    try {
+                        await fetch(form.action || '#', { method: (form.method || 'post'), body: payload });
+                        const text = textarea ? textarea.value : '';
+                        state.history = [{ text, at: Date.now() }, ...state.history].slice(0, 5);
+                        state.status = 'saved';
+                        trigger('submitted', { text });
+                    } catch (err) {
+                        state.status = 'error';
+                        console.error('Feedback submit error', err);
+                    }
+                });
+            }),
+            html.slot(),
+            html.div({ class: 'status' }, state.status),
+            html.ul({ class: 'feedback-history' },
+                ...state.history.map((item) => html.li(
+                    html.time(new Date(item.at).toLocaleTimeString()),
+                    html.span(' ', item.text)
+                ))
+            )
+        ]);
 
         // Form submission handler
         document.addEventListener('submit', (e) => {
