@@ -36,9 +36,9 @@ test.describe('Index Page Documentation', () => {
         await expect(page.locator('.feature-card').getByText('Zero Dependencies')).toBeVisible();
     });
     
-    test('should display all 5 interactive examples', async ({ page }) => {
+    test('should display all interactive examples', async ({ page }) => {
         const examples = page.locator('.example-card');
-        await expect(examples).toHaveCount(5);
+        await expect(examples).toHaveCount(6);
         
         // Check example titles - use example-title class to avoid duplicates
         await expect(page.locator('.example-title').getByText('Simple Counter')).toBeVisible();

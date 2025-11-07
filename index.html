@@ -668,8 +668,7 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
                     class: "counter-container",
                     submit: (e) => {
                         e.preventDefault();
-                        const data = new FormData(e.target);
-                        const action = data.get("action");
+                        const action = e.submitter.value;
                         console.log("Action:", action);
                         if (action === "increment") {
                             state.count++;

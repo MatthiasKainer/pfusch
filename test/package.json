@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "npm run host && sleep 10 &&  playwright test && npm run host:end",
-    "host": "npx serve -l 3030 -s .. &",
+    "host": "npx serve -l 3030 .. &",
     "host:end": "kill -9 $(lsof -t -i:3030)"
   },
   "keywords": [],
