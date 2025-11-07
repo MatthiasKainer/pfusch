@@ -313,7 +313,18 @@ export function pfusch(tagName, initialState, template) {
                     if ((explicit || !isIn) && n.value !== o.value && !active) { try { o.value = n.value; } catch { } }
                 }
                 const oc = Array.from(o.children), nc = Array.from(n.children);
-                if (!nc.length && !oc.length) { if (o.textContent !== n.textContent) o.textContent = n.textContent; return; }
+                if (!nc.length) {
+                    if (oc.length || o.textContent !== n.textContent) o.textContent = n.textContent;
+                    return;
+                }
+
+                const hasDirectText = Array.from(n.childNodes).some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.length);
+                if (!hasDirectText) {
+                    Array.from(o.childNodes).forEach(node => {
+                        if (node.nodeType === Node.TEXT_NODE) node.remove();
+                    });
+                }
+
                 nc.forEach((c, i) => {
                     let ex = oc[i];
                     if (!c.id) c.id = ex?.id || this.getStableId(c.tagName, i);

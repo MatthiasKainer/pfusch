@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-336-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-7.8K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.0K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-347-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-7.8K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.0K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
