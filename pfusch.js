@@ -157,8 +157,8 @@ export function pfusch(tagName, initialState, template) {
 
             const trigger = (eventName, detail) => {
                 const fullEventName = `${tagName}.${eventName}`;
-                this.dispatchEvent(new CustomEvent(fullEventName, { detail, bubbles: true }));
-                this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
+                this.dispatchEvent(new CustomEvent(fullEventName, { detail, bubbles: true, composed: true }));
+                this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
                 window.postMessage({ eventName: fullEventName, detail: { sourceId: this.is.id, data: jstr(detail) } }, "*");
             };
 
