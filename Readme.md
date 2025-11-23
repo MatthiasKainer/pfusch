@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-347-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-7.8K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.0K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-347-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-8.0K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.0K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -183,6 +183,27 @@ Pfusch works seamlessly with your existing styles:
   </script>
 </body>
 ```
+
+### Zero Dependencies, even for Testing
+
+Pfusch components can be tested with just Node.js:
+
+```js
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { setupDomStubs, pfuschTest } from './unit-tests/pfusch-stubs.js';
+import { pfusch, html } from '../pfusch.js';
+const { restore } = setupDomStubs();
+pfusch('my-widget', {}, () => [html.div('hi')]);
+test('my-widget renders correctly', async () => {
+  const widget = pfuschTest('my-widget');
+  await widget.flush();
+  assert.equal(widget.get('div').textContent, 'hi');
+});
+restore();
+```
+
+Read more in the [unit tests README](unit-tests/README.md).
 
 ### Real-World Example: Live Monitoring Dashboard
 
