@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-347-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-8.0K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.0K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-347-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-8.1K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.0K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -436,24 +436,33 @@ Native form support with state serialization:
 
 ```html
 <form method="post" action="/api/save">
-  <star-rating name="rating" value="0"></star-rating>
+  <star-rating name="rating" value="0">
+    <label><input type="radio" name="rating" value="0">★</label>
+    <label><input type="radio" name="rating" value="1">★</label>
+    <label><input type="radio" name="rating" value="2">★</label>
+    <label><input type="radio" name="rating" value="3">★</label>
+    <label><input type="radio" name="rating" value="4">★</label>
+  </star-rating>
   <button type="submit">Submit</button>
 </form>
 
 <script type="module">
-  import { pfusch, html } from "./pfusch.js";
+  import { pfusch, html, css } from "./pfusch.js";
   
-  pfusch("star-rating", { name: "rating", value: 0, max: 5 }, (state) => [
-    // State is automatically serialized to form value
-    html.div(
-      ...Array.from({ length: state.max }, (_, i) => 
-        html.button({
-          type: "button",
-          click: () => state.value = i + 1
-        }, state.value > i ? "★" : "☆")
-      )
-    )
-  ]);
+  pfusch("star-rating", { value: 0 }, (state, _, helpers) => {
+    const elems = [...helpers.children()];
+    elems.forEach((label, index) => {
+        const input = label.querySelector("input");
+        if (index <= state.value) label.style.color = "gold";
+        else label.style.color = "grey";
+        
+        input.addEventListener("change", () => state.value = index);
+    });
+    return [
+        css`:host { display: flex; } input { display: none; }`,
+        ...elems
+    ];
+  });
 </script>
 ```
 
@@ -572,8 +581,7 @@ See the [Rapid Prototyping Patterns](#rapid-prototyping-patterns) section for mo
 Obviously. Let's say you have a nice star-rating component like this:
 
 ```js
-pfusch("star-rating", { id: "rating", count: 5, value: 0, name: "rating" }, (state) => [
-    css`
+const starStyle = css`
     :host {
         display: flex;
         flex-direction: row-reverse;
@@ -591,33 +599,43 @@ pfusch("star-rating", { id: "rating", count: 5, value: 0, name: "rating" }, (sta
         cursor: pointer;
         transition: color 0.5s;
     }
-    input:checked ~ label, label:hover, label:hover ~ label {
+    label.checked, label.checked ~ label, label:hover, label:hover ~ label {
         color: #f5b301;
     }
-    `,
-    ...Array.from({ length: state.count }, (_, i) => {
-        const value = state.count - i;
-        return [
-            html.input({
-                type: "radio",
-                id: `${state.id}-star-${value}`,
-                name: state.name,
-                value,
-                change: (e) => state.value = e.target.value,
-                ...state.value == value && { checked: true }
-            }),
-            html.label({ for: `${state.id}-star-${value}` }, "★")
-        ];
-    }).flat()
-])
+`
 
+pfusch("star-rating", { id: "rating", count: 5, value: 0, name: "rating" }, (state, _, helpers) => {
+    const elems = [...helpers.children()];
+    elems.forEach((label, index) => {
+        const input = label.querySelector("input");
+        if (!input) return;
+        if (index === state.value) {
+            label.classList.add("checked");
+        } else {
+            label.classList.remove("checked");
+        }
+        input.addEventListener("change", () => {
+            state.value = index;
+        });
+    });
+    return [
+        starStyle,
+        ...elems
+    ]
+})
 ```
 
 When you open this to your page like so:
 
 ```html
     <form method="post" action="/">
-        <star-rating id="rating" name="rating"></star-rating>
+        <star-rating>
+            <label><input type="radio" name="rating" value="0">★</label>
+            <label><input type="radio" name="rating" value="1">★</label>
+            <label><input type="radio" name="rating" value="2">★</label>
+            <label><input type="radio" name="rating" value="3">★</label>
+            <label><input type="radio" name="rating" value="4">★</label>
+        </star-rating>
         <label for="comment">Comment</label>
         <textarea name="comment" id="comment" cols="30" rows="10" placeholder="Say what you think, but in friendly" aria-label="Comment"></textarea>
         <button type="submit">Submit</button>

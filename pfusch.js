@@ -237,10 +237,10 @@ export function pfusch(tagName, initialState, template) {
                     if (Array.isArray(item)) {
                         item.forEach(i => {
                             if (!i) return;
-                            if (i?.element || i instanceof Element) pushEl(i.element || i);
+                            if (i?.element || i instanceof Element || i instanceof window.Element) pushEl(i.element || i);
                             else if (typeof i === 'string') { const span = document.createElement('span'); span.textContent = i; pushEl(span); }
                         });
-                    } else if (item?.element || item instanceof Element) {
+                    } else if (item?.element || item instanceof Element || item instanceof window.Element) {
                         pushEl(item.element || item);
                     } else if (typeof item === 'string') {
                         const span = document.createElement('span'); span.textContent = item; pushEl(span);
