@@ -6,7 +6,7 @@ test('live-counter component works correctly', async ({ page }) => {
   page.on('pageerror', err => console.error('PAGE ERROR:', err.message));
 
   // Navigate to the test page
-  await page.goto('http://localhost:3030/test/test-counter.html');
+  await page.goto('http://localhost:3030/e2e/test-counter.html');
   
 
   // Wait for the live-counter component to be defined and rendered

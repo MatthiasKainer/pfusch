@@ -6,7 +6,7 @@ test('event-driven architecture works correctly', async ({ page }) => {
   page.on('pageerror', err => console.error('PAGE ERROR:', err.message));
   
   // Navigate to the test page
-  await page.goto('http://localhost:3030/test/test-event-driven.html');
+  await page.goto('http://localhost:3030/e2e/test-event-driven.html');
   
   // Wait for components to initialize
   await page.waitForTimeout(1000);

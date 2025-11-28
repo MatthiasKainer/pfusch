@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Spread Operator Bug', () => {
     test.beforeEach(async ({ page }) => {
         page.on('console', msg => console.log('BROWSER:', msg.text()));
-        await page.goto('http://localhost:3030/test/test-spread-bug.html');
+        await page.goto('http://localhost:3030/e2e/test-spread-bug.html');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(500);
     });

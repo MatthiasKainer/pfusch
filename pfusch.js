@@ -3,7 +3,15 @@ const json = j => { try { return j && typeof j === s ? JSON.parse(j) : j; } catc
 const jstr = JSON.stringify;
 const str = (string, ...tags) => typeof string === s ? string : string.reduce((acc, part, i) => acc + part + (tags[i] || ''), '');
 
-export const css = (style, ...tags) => ({ type: 'style', content: () => { const sheet = new CSSStyleSheet(); sheet.replaceSync(str(style, ...tags)); return sheet; } });
+const cssCache = new Map();
+export const css = (style, ...tags) => {
+    const cssText = str(style, ...tags);
+    let sheet;
+    return {
+        type: 'style',
+        content: () => sheet || (sheet = cssCache.get(cssText) || (cssCache.set(cssText, sheet = new CSSStyleSheet()), sheet.replaceSync(cssText), sheet))
+    };
+};
 export const script = js => ({ type: 'script', content: js });
 
 const addAttr = (el) => ([k, v]) => {
