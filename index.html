@@ -1099,6 +1099,32 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
                     String(a[sortBy]).localeCompare(String(b[sortBy]))
                 );
             };
+
+            const hydrateFromLightDom = () => {
+                const tables = children('table');
+                const table = tables && tables.length > 0 ? tables[0] : null;
+                if (!table) return;
+
+                const headers = Array.from(table.querySelectorAll('thead th'));
+                const cols = headers.map(th => ({
+                    name: th.textContent.trim(),
+                    key: th.textContent.trim().toLowerCase()
+                }));
+
+                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                const items = rows.map(row => {
+                    const cells = row.querySelectorAll('td');
+                    const item = {};
+                    cols.forEach((col, index) => {
+                        item[col.key] = cells[index]?.textContent?.trim() || '';
+                    });
+                    return item;
+                });
+
+                state.columns = cols;
+                state.items = items;
+                state.loading = false;
+            };
             
             return [
                 css`
@@ -1121,31 +1147,11 @@ pfusch("enhanced-table", { sortBy: null, items: [], columns: [] },
                         background: #5568d3;
                     }
                 `,
-                script(function() {
-                    // Extract data from original table in light DOM
-                    const tables = children('table');
-                    if (tables && tables.length > 0) {
-                        const table = tables[0];
-                        
-                        // Extract column headers
-                        const headers = Array.from(table.querySelectorAll('thead th'));
-                        state.columns = headers.map(th => ({
-                            name: th.textContent.trim(),
-                            key: th.textContent.trim().toLowerCase()
-                        }));
-                        
-                        // Extract rows and build items dynamically
-                        const rows = Array.from(table.querySelectorAll('tbody tr'));
-                        state.items = rows.map(row => {
-                            const cells = row.querySelectorAll('td');
-                            const item = {};
-                            state.columns.forEach((col, index) => {
-                                item[col.key] = cells[index]?.textContent?.trim() || '';
-                            });
-                            return item;
-                        });
-                    }
-                    state.loading = false;
+                script(() => {
+                    state.subscribe('loading', async (loading) => {
+                        if (!loading) return;
+                        hydrateFromLightDom();
+                    });
                 }),
                 // Add interactive controls
                 html.div({ class: "table-controls" },

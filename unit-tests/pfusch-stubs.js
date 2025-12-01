@@ -89,7 +89,7 @@ class FakeElement {
     this.tagName = String(tagName || '').toUpperCase();
     this.nodeType = 1;
     this.ownerDocument = ownerDocument;
-    this.childNodes = [];
+    this._childNodes = [];
     this.dataset = {};
     this.state = {};
     this.classList = new FakeClassList();
@@ -118,8 +118,16 @@ class FakeElement {
     return this.shadowRoot;
   }
   appendChild(node) {
-    this.childNodes.push(node);
-    if (node && typeof node === 'object') {
+    if (!node) return node;
+    if (node.parentNode) {
+      if (node.parentNode !== this) node.parentNode.removeChild?.(node);
+      else {
+        const existingIndex = this._childNodes.indexOf(node);
+        if (existingIndex >= 0) this._childNodes.splice(existingIndex, 1);
+      }
+    }
+    this._childNodes.push(node);
+    if (typeof node === 'object') {
       node.parentNode = this;
       if (!node.ownerDocument && this.ownerDocument) node.ownerDocument = this.ownerDocument;
     }
@@ -127,26 +135,39 @@ class FakeElement {
   }
   insertBefore(newNode, referenceNode) {
     if (!referenceNode) return this.appendChild(newNode);
-    const index = this.childNodes.indexOf(referenceNode);
+    const index = this._childNodes.indexOf(referenceNode);
     if (index === -1) return this.appendChild(newNode);
-    this.childNodes.splice(index, 0, newNode);
-    if (newNode && typeof newNode === 'object') newNode.parentNode = this;
+    if (newNode?.parentNode) {
+      if (newNode.parentNode !== this) newNode.parentNode.removeChild?.(newNode);
+      else {
+        const existingIndex = this._childNodes.indexOf(newNode);
+        if (existingIndex >= 0) this._childNodes.splice(existingIndex, 1);
+      }
+    }
+    this._childNodes.splice(index, 0, newNode);
+    if (typeof newNode === 'object') {
+      newNode.parentNode = this;
+      if (!newNode.ownerDocument && this.ownerDocument) newNode.ownerDocument = this.ownerDocument;
+    }
     return newNode;
   }
   removeChild(node) {
-    const index = this.childNodes.indexOf(node);
+    const index = this._childNodes.indexOf(node);
     if (index >= 0) {
-      this.childNodes.splice(index, 1);
+      this._childNodes.splice(index, 1);
       if (node && typeof node === 'object') node.parentNode = null;
     }
   }
   replaceWith(node) {
     if (!this.parentNode) return;
-    const index = this.parentNode.childNodes.indexOf(this);
+    const index = this.parentNode._childNodes.indexOf(this);
     if (index >= 0) {
-      this.parentNode.childNodes.splice(index, 1, node);
+      this.parentNode._childNodes.splice(index, 1, node);
       node.parentNode = this.parentNode;
     }
+  }
+  get childNodes() {
+    return this._childNodes.filter(child => child?.parentNode === this);
   }
   remove() {
     if (this.parentNode) this.parentNode.removeChild(this);
@@ -255,7 +276,7 @@ class FakeElement {
   }
   set innerHTML(value) {
     this._innerHTML = String(value ?? '');
-    this.childNodes = [];
+    this._childNodes = [];
     this._textContent = '';
   }
   get textContent() {
@@ -265,7 +286,7 @@ class FakeElement {
     return this._textContent;
   }
   set textContent(value) {
-    this.childNodes = [];
+    this._childNodes = [];
     this._textContent = String(value ?? '');
   }
   get value() {
@@ -404,7 +425,7 @@ class FakeRange {
     this.lastNode = node;
   }
   deleteContents() {
-    if (this.context) this.context.childNodes = [];
+    if (this.context) this.context._childNodes = [];
   }
   cloneRange() {
     const clone = new FakeRange(this.context);
@@ -434,7 +455,7 @@ class FakeSelection {
   }
   deleteFromDocument() {
     const range = this._ranges[0];
-    if (range?.context) range.context.childNodes = [];
+    if (range?.context) range.context._childNodes = [];
   }
   collapseToEnd() {
     /* no-op */
@@ -498,7 +519,13 @@ class FakeDocument {
     return element;
   }
   createTextNode(text) {
-    return { nodeType: 3, textContent: String(text ?? '') };
+    return {
+      nodeType: 3,
+      textContent: String(text ?? ''),
+      remove() {
+        this.parentNode?.removeChild?.(this);
+      }
+    };
   }
   createRange() {
     return new FakeRange();
