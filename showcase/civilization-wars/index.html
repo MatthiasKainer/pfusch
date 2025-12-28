@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Civilization Wars - A Pfusch Showcase</title>
+    <meta name="description" content="A turn-based civilization breeding game using Conway's Game of Life mechanics with D&D stats">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
+    <script>
+        // Register Service Worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
+    <style data-pfusch>
+        :root {
+            --bg-dark: #2d1b1b;
+            --bg-medium: #3d2420;
+            --bg-light: #4a3728;
+            --accent: #d4af37;
+            --accent-light: #f4d03f;
+            --text: #e8d5b7;
+            --text-muted: #a89968;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --info: #60a5fa;
+            --cell-size: 8px;
+            --gold: #d4af37;
+            --dark-burgundy: #5c2e2e;
+            --stone: #3a3a3a;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container { max-width: 1800px; margin: 0 auto; padding: 0.5rem; }
+        
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--accent-light); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: var(--bg-light); }
+        .btn-success { background: var(--success); color: #111; }
+        .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+        
+        .card {
+            background: var(--bg-medium);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--accent-light);
+        }
+        
+        input, select {
+            background: var(--bg-dark);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text);
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            width: 100%;
+        }
+        input:focus, select:focus { outline: 2px solid var(--accent); }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-dark);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+        
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .gap-1 { gap: 0.5rem; }
+        .gap-2 { gap: 1rem; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .flex-wrap { flex-wrap: wrap; }
+        .flex-1 { flex: 1; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.25rem; }
+        
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-muted); }
+        .text-small { font-size: 0.85rem; }
+        .text-xs { font-size: 0.75rem; }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        
+        .stat-badge {
+            background: var(--bg-dark);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-align: center;
+        }
+        .stat-value { font-weight: bold; font-size: 1rem; display: block; }
+        .stat-label { color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; }
+        
+        .player-tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .hidden { display: none !important; }
+        
+        /* Game canvas styles */
+        .game-canvas-wrapper {
+            position: relative;
+            border: 4px solid var(--gold);
+            border-radius: 8px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a0f0a 0%, #2d1b1b 50%, #1a0f0a 100%);
+            background-attachment: fixed;
+            width: 100%;
+            height: calc(100vh - 100px);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 30px rgba(212,175,55,0.3);
+        }
+        
+        .game-canvas-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(0deg, rgba(212,175,55,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,175,55,0.03) 1px, transparent 1px),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs><pattern id="stone" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="%23221610" opacity="0.1"/><circle cx="10" cy="10" r="3" fill="%23000" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23stone)"/></svg>');
+            background-size: var(--cell-size) var(--cell-size), var(--cell-size) var(--cell-size), 20px 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        #game-canvas {
+            display: block;
+            image-rendering: pixelated;
+            cursor: crosshair;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .zoom-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            background: rgba(212,175,55,0.1);
+            border: 2px solid var(--gold);
+            color: var(--gold);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+        .zoom-btn:hover { background: rgba(212,175,55,0.25); box-shadow: 0 0 10px rgba(212,175,55,0.4); }
+        
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal {
+            background: var(--bg-medium);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 2px solid var(--accent);
+        }
+        
+        .modal h2 {
+            color: var(--accent-light);
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        /* Civilization colors */
+        .civ-0 { --civ-color: #e94560; }
+        .civ-1 { --civ-color: #4ade80; }
+        .civ-2 { --civ-color: #60a5fa; }
+        .civ-3 { --civ-color: #fbbf24; }
+        .civ-4 { --civ-color: #a78bfa; }
+        .civ-5 { --civ-color: #f472b6; }
+        .civ-6 { --civ-color: #34d399; }
+        .civ-7 { --civ-color: #fb923c; }
+        .civ-npc { --civ-color: #888; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .current-turn { animation: pulse 1.5s ease-in-out infinite; }
+        
+        .main-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr 240px;
+            gap: 0.75rem;
+            height: calc(100vh - 20px);
+        }
+        
+        .sidebar {
+            overflow-y: auto;
+            max-height: calc(100vh - 20px);
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-layout { 
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .sidebar { max-height: none; }
+            .game-canvas-wrapper { height: 60vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <game-setup></game-setup>
+        <game-main></game-main>
+        <game-over-modal></game-over-modal>
+    </div>
+    
+    <script type="module">
+        import { pfusch, html, css, script } from '../../pfusch.js';
+        import { GameEngine } from './engine.js';
+        import { PLAYER_COLORS, CIV_NAMES, NPC_STRATEGIES, FIELD_TYPES } from './constants.js';
+        
+        // Make engine globally accessible for components
+        window.gameEngine = null;
+        const FIELD_TYPE_BY_ID = Object.fromEntries(
+            FIELD_TYPES.map(field => [field.id, field])
+        );
+        
+        // ============================================
+        // DEFINE ALL CHILD COMPONENTS FIRST
+        // ============================================
+        
+        // GAME CONTROLS COMPONENT
+        pfusch('game-controls', {
+            generation: 0,
+            currentPlayer: 0,
+            totalPlayers: 0,
+            isSimulating: false,
+            isBursting: false,
+            placementsLeft: 0,
+            autoSimulate: false,
+            autoInterval: null,
+            nextGenBurst: 1
+        }, (state, trigger) => {
+            
+            const endTurn = () => {
+                if (!window.gameEngine) return;
+                window.gameEngine.endTurn();
+            };
+            
+            const simulateStep = () => {
+                if (!window.gameEngine || window.gameEngine.isBursting) return;
+                state.isSimulating = true;
+                window.gameEngine.simulateGeneration();
+                setTimeout(() => {
+                    state.isSimulating = false;
+                    window.dispatchEvent(new CustomEvent('game.stateChanged'));
+                }, 50);
+            };
+            
+            const toggleAutoSimulate = () => {
+                state.autoSimulate = !state.autoSimulate;
+                if (state.autoSimulate) {
+                    state.autoInterval = setInterval(simulateStep, 200);
+                } else if (state.autoInterval) {
+                    clearInterval(state.autoInterval);
+                    state.autoInterval = null;
+                }
+            };
+
+            const enableAutoSimulate = () => {
+                if (state.autoSimulate) return;
+                state.autoSimulate = true;
+                state.autoInterval = setInterval(simulateStep, 200);
+            };
+            
+            const exportGame = () => {
+                if (!window.gameEngine) return;
+                const data = window.gameEngine.exportState();
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `civ-wars-gen${state.generation}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
+            return [
+                script(function() {
+                    const update = () => {
+                        if (!window.gameEngine) return;
+                        const engine = window.gameEngine;
+                        state.generation = engine.generation;
+                        state.currentPlayer = engine.currentPlayer;
+                        state.totalPlayers = engine.players.length;
+                        state.placementsLeft = engine.getPlacementsLeft();
+                        state.nextGenBurst = engine.getNextGenerationBurst();
+                        state.isBursting = engine.isBursting;
+                    };
+                    window.addEventListener('game.initialized', () => {
+                        update();
+                    });
+                    window.addEventListener('game.stateChanged', update);
+                    window.addEventListener('game.start', update);
+                    window.addEventListener('game.autosimulate', (e) => {
+                        if (e.detail?.enabled) {
+                            enableAutoSimulate();
+                        }
+                    });
+                }),
+                
+                html.div({ class: 'flex flex-col gap-1' },
+                    html.div({ class: 'text-center', style: 'margin-bottom: 0.5rem' },
+                        html.div({ class: 'text-muted text-xs' }, 'Generation'),
+                        html.div({ style: 'font-size: 1.75rem; font-weight: bold; color: var(--accent-light)' }, 
+                            `${state.generation}`
+                        )
+                    ),
+                    
+                    html.div({ class: 'text-center text-xs text-muted', style: 'margin-bottom: 0.5rem' },
+                        `${state.placementsLeft} placements left`
+                    ),
+                    
+                    html.button({
+                        class: 'btn',
+                        click: endTurn,
+                        style: 'width: 100%',
+                        disabled: state.isBursting
+                    }, '⏭ End Turn'),
+                    
+                    html.div({ class: 'text-xs text-muted text-center', style: 'margin-bottom: 0.5rem' },
+                        state.isBursting ? 'Simulating generation burst...' : `Next generation burst: x${state.nextGenBurst}`
+                    ),
+                    
+                    html.button({
+                        class: 'btn btn-secondary',
+                        click: simulateStep,
+                        disabled: state.isSimulating || state.autoSimulate || state.isBursting,
+                        style: 'width: 100%'
+                    }, '⚡ Quick Simulate'),
+                    
+                    html.button({
+                        class: state.autoSimulate ? 'btn btn-success' : 'btn btn-secondary',
+                        click: toggleAutoSimulate,
+                        style: 'width: 100%',
+                        disabled: state.isBursting
+                    }, state.autoSimulate ? '⏸ Stop Auto' : '▶ Auto Simulate'),
+                    
+                    html.button({
+                        class: 'btn btn-secondary',
+                        click: exportGame,
+                        style: 'width: 100%'
+                    }, '💾 Export Game')
+                )
+            ];
+        });
+        
+        // BREEDING CONTROLS COMPONENT
+        pfusch('breeding-controls', {
+            strBias: 0,
+            conBias: 0,
+            dexBias: 0,
+            chrBias: 0,
+            wisBias: 0,
+            intBias: 0,
+            playerName: '',
+            playerColor: '#888',
+            isNPC: false
+        }, (state, trigger) => {
+            const biasKeys = ['strBias', 'conBias', 'dexBias', 'chrBias', 'wisBias', 'intBias'];
+            const enforceBiasLimit = (changedKey) => {
+                let total = biasKeys.reduce((sum, key) => sum + state[key], 0);
+                if (total <= 0) return;
+                let remaining = total;
+                const orderedKeys = [changedKey, ...biasKeys.filter(key => key !== changedKey)];
+                orderedKeys.forEach(key => {
+                    const value = state[key];
+                    if (value > 0 && remaining > 0) {
+                        const reduction = Math.min(value, remaining);
+                        state[key] = value - reduction;
+                        remaining -= reduction;
+                    }
+                });
+            };
+
+            const updateBias = (stat, value, event) => {
+                if (state.isNPC) return; // NPCs control their own breeding
+                const nextValue = parseInt(value);
+                const totalBias = state.strBias + state.conBias + state.dexBias +
+                    state.chrBias + state.wisBias + state.intBias;
+                if (totalBias === 0 && nextValue > state[stat]) {
+                    if (event?.target) {
+                        event.target.value = state[stat];
+                    }
+                    return;
+                }
+                state[stat] = nextValue;
+                enforceBiasLimit(stat);
+                if (window.gameEngine) {
+                    const player = window.gameEngine.players[window.gameEngine.currentPlayer];
+                    if (!player.isNPC) {
+                        player.breedingBias = {
+                            str: state.strBias,
+                            con: state.conBias,
+                            dex: state.dexBias,
+                            chr: state.chrBias,
+                            wis: state.wisBias,
+                            int: state.intBias
+                        };
+                    }
+                }
+            };
+            
+            const makeBiasSlider = (label, stat, color, tooltip) => {
+                return html.div({ id: `bias-${state.playerName}-${stat}`, class: 'flex items-center gap-1', style: 'margin-bottom: 0.25rem', title: tooltip },
+                    html.span({ class: 'text-xs', style: `width: 35px; color: ${color}; cursor: help` }, label),
+                    html.input({
+                        type: 'range',
+                        min: -3,
+                        max: 3,
+                        value: state[stat],
+                        input: (e) => updateBias(stat, e.target.value, e),
+                        disabled: state.isNPC,
+                        style: `flex: 1; ${state.isNPC ? 'opacity: 0.5' : ''}`
+                    }),
+                    html.span({ class: 'text-xs', style: 'width: 20px; text-align: right' }, 
+                        state[stat] > 0 ? `+${state[stat]}` : `${state[stat]}`
+                    )
+                );
+            };
+            
+            return [
+                script(function() {
+                    const syncFromPlayer = () => {
+                        if (!window.gameEngine) return;
+                        const player = window.gameEngine.players[window.gameEngine.currentPlayer];
+                        if (!player) return;
+                        
+                        state.playerName = player.name.replace(/^(Player \d+: |NPC: )/, '');
+                        state.playerColor = PLAYER_COLORS[player.colorIndex] || '#888';
+                        state.isNPC = player.isNPC;
+                        
+                        if (player.breedingBias) {
+                            state.strBias = player.breedingBias.str || 0;
+                            state.conBias = player.breedingBias.con || 0;
+                            state.dexBias = player.breedingBias.dex || 0;
+                            state.chrBias = player.breedingBias.chr || 0;
+                            state.wisBias = player.breedingBias.wis || 0;
+                            state.intBias = player.breedingBias.int || 0;
+                        } else {
+                            // Initialize bias to 0 if not set
+                            state.strBias = 0;
+                            state.conBias = 0;
+                            state.dexBias = 0;
+                            state.chrBias = 0;
+                            state.wisBias = 0;
+                            state.intBias = 0;
+                        }
+                    };
+                    window.addEventListener('game.initialized', syncFromPlayer);
+                    window.addEventListener('game.stateChanged', syncFromPlayer);
+                }),
+                
+                // Show current civilization being edited
+                html.div({ 
+                    class: 'flex items-center gap-1', 
+                    style: 'margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1)'
+                },
+                    html.span({ 
+                        style: `width: 12px; height: 12px; border-radius: 50%; background: ${state.playerColor}; flex-shrink: 0`
+                    }),
+                    html.span({ class: 'text-small', style: `color: ${state.playerColor}` }, state.playerName),
+                    state.isNPC ? html.span({ class: 'text-muted text-xs' }, '🤖') : null
+                ),
+                
+                state.isNPC 
+                    ? html.div({ class: 'text-xs text-muted text-center', style: 'padding: 0.5rem' },
+                        'NPC controls its own breeding strategy'
+                    )
+                    : [
+                        html.div({ class: 'text-xs text-muted', style: 'margin-bottom: 0.5rem' },
+                            'Adjust offspring stat tendencies:'
+                        ),
+                        html.div({ class: 'text-xs text-muted', style: 'margin-bottom: 0.35rem' },
+                            `Total bias must be ≤ 0 (now ${state.strBias + state.conBias + state.dexBias + state.chrBias + state.wisBias + state.intBias}) — increases locked at 0`
+                        ),
+                        makeBiasSlider('STR', 'strBias', '#ef4444', 'Strength: Primary combat stat, determines attack power'),
+                        makeBiasSlider('CON', 'conBias', '#f97316', 'Constitution: Survival & defense, helps cells live longer'),
+                        makeBiasSlider('DEX', 'dexBias', '#22c55e', 'Dexterity: Evasion & initiative, acts first in combat'),
+                        makeBiasSlider('CHR', 'chrBias', '#ec4899', 'Charisma: Breeding success, higher offspring chance'),
+                        makeBiasSlider('WIS', 'wisBias', '#a855f7', 'Wisdom: Tactical awareness, combat modifier'),
+                        makeBiasSlider('INT', 'intBias', '#3b82f6', 'Intelligence: Strategy & adaptability, combat modifier')
+                    ]
+            ];
+        });
+        
+        // PLAYER LIST COMPONENT  
+        pfusch('player-list', {
+            players: [],
+            currentPlayer: 0
+        }, (state) => {
+            return [
+                script(function() {
+                    const update = () => {
+                        if (!window.gameEngine) return;
+                        state.players = [...window.gameEngine.players];
+                        state.currentPlayer = window.gameEngine.currentPlayer;
+                    };
+                    window.addEventListener('game.initialized', update);
+                    window.addEventListener('game.stateChanged', update);
+                }),
+                
+                html.div({ class: 'flex flex-col gap-1' },
+                    ...state.players.map((player, idx) => 
+                        html.div({ 
+                            class: `flex items-center justify-between ${idx === state.currentPlayer ? 'current-turn' : ''}`,
+                            style: `padding: 0.35rem; border-radius: 6px; background: ${idx === state.currentPlayer ? 'rgba(233,69,96,0.2)' : 'transparent'}`
+                        },
+                            html.div({ class: 'flex items-center gap-1' },
+                                html.span({ 
+                                    style: `width: 10px; height: 10px; border-radius: 50%; background: ${PLAYER_COLORS[player.colorIndex]}; flex-shrink: 0`
+                                }),
+                                html.span({ class: 'text-small', style: 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px' }, 
+                                    player.name.replace(/^(Player \d+: |NPC: )/, '')
+                                ),
+                                player.isNPC ? html.span({ class: 'text-muted text-xs' }, '🤖') : null
+                            ),
+                            html.span({ class: 'text-xs' }, `${player.cellCount}`)
+                        )
+                    )
+                )
+            ];
+        });
+        
+        // GAME STATS COMPONENT
+        pfusch('game-stats', {
+            totalCells: 0,
+            births: 0,
+            deaths: 0,
+            battles: 0
+        }, (state) => {
+            return [
+                script(function() {
+                    const update = () => {
+                        if (!window.gameEngine) return;
+                        const stats = window.gameEngine.getStats();
+                        state.totalCells = stats.totalCells;
+                        state.births = stats.births;
+                        state.deaths = stats.deaths;
+                        state.battles = stats.battles;
+                    };
+                    window.addEventListener('game.initialized', update);
+                    window.addEventListener('game.stateChanged', update);
+                }),
+                
+                html.div({ class: 'grid-2 text-center' },
+                    html.div({ class: 'stat-badge' },
+                        html.span({ class: 'stat-value' }, `${state.totalCells}`),
+                        html.span({ class: 'stat-label' }, 'Cells')
+                    ),
+                    html.div({ class: 'stat-badge' },
+                        html.span({ class: 'stat-value text-success' }, `+${state.births}`),
+                        html.span({ class: 'stat-label' }, 'Births')
+                    ),
+                    html.div({ class: 'stat-badge' },
+                        html.span({ class: 'stat-value', style: 'color: var(--accent)' }, `-${state.deaths}`),
+                        html.span({ class: 'stat-label' }, 'Deaths')
+                    ),
+                    html.div({ class: 'stat-badge' },
+                        html.span({ class: 'stat-value text-warning' }, `${state.battles}`),
+                        html.span({ class: 'stat-label' }, 'Battles')
+                    )
+                )
+            ];
+        });
+        
+        // GAME BOARD COMPONENT (Canvas-based for performance)
+        pfusch('game-board', {
+            zoom: 1,
+            panX: 0,
+            panY: 0,
+            cellSize: 8,
+            hoveredCell: null,
+            isDragging: false,
+            lastMouse: null
+        }, (state, trigger) => {
+            return [
+                // Shadow DOM styles - must be inside component!
+                html.style(`
+                    :host {
+                        display: block;
+                        width: 100%;
+                        height: 100%;
+                    }
+                    .game-canvas-wrapper {
+                        position: relative;
+                        border: 2px solid #2a2a40;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        background: #000;
+                        width: 100%;
+                        height: 100%;
+                        min-height: 400px;
+                    }
+                    #game-canvas {
+                        display: block;
+                        image-rendering: pixelated;
+                        cursor: crosshair;
+                    }
+                    .zoom-controls {
+                        position: absolute;
+                        bottom: 10px;
+                        right: 10px;
+                        display: flex;
+                        gap: 5px;
+                        z-index: 10;
+                    }
+                    .zoom-btn {
+                        width: 32px;
+                        height: 32px;
+                        background: rgba(0,0,0,0.7);
+                        border: 1px solid #4a4a6a;
+                        color: #fff;
+                        font-size: 18px;
+                        cursor: pointer;
+                        border-radius: 4px;
+                    }
+                    .zoom-btn:hover {
+                        background: rgba(100,100,150,0.7);
+                    }
+                `),
+                script(function() {
+                    let canvas, ctx;
+                    let animFrameId = null;
+                    let needsRender = true;
+                    let lastCanvasWidth = 0;
+                    let lastCanvasHeight = 0;
+                    const explosions = [];
+                    
+                    const getCanvas = () => {
+                        // Always re-query in case component re-rendered
+                        const newCanvas = this.shadowRoot.querySelector('#game-canvas');
+                        if (newCanvas !== canvas) {
+                            canvas = newCanvas;
+                            ctx = canvas ? canvas.getContext('2d') : null;
+                        }
+                        return canvas;
+                    };
+                    
+                    const ensureCanvasSize = (c) => {
+                        if (!c) return false;
+                        const wrapper = c.parentElement;
+                        if (!wrapper) return false;
+                        
+                        const rect = wrapper.getBoundingClientRect();
+                        const width = Math.floor(rect.width) || 800;
+                        const height = Math.floor(rect.height) || 600;
+                        
+                        // Only resize if dimensions changed
+                        if (c.width !== width || c.height !== height) {
+                            c.width = width;
+                            c.height = height;
+                            console.log('Canvas resized:', width, 'x', height);
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    const drawExplosions = (cellSize) => {
+                        if (!ctx) return;
+                        const now = performance.now();
+                        for (let i = explosions.length - 1; i >= 0; i--) {
+                            const explosion = explosions[i];
+                            const elapsed = now - explosion.start;
+                            if (elapsed > explosion.duration) {
+                                explosions.splice(i, 1);
+                                continue;
+                            }
+                            const progress = elapsed / explosion.duration;
+                            const eased = 1 - Math.pow(1 - progress, 2);
+                            const cx = explosion.x * cellSize + cellSize / 2;
+                            const cy = explosion.y * cellSize + cellSize / 2;
+                            const radius = cellSize * 0.4 + eased * cellSize * 1.6;
+                            
+                            ctx.save();
+                            ctx.globalAlpha = 1 - progress;
+                            ctx.strokeStyle = explosion.color;
+                            ctx.lineWidth = Math.max(1, cellSize * 0.12);
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                            ctx.stroke();
+                            
+                            explosion.particles.forEach(particle => {
+                                const px = cx + Math.cos(particle.angle) * eased * cellSize * particle.speed * 1.8;
+                                const py = cy + Math.sin(particle.angle) * eased * cellSize * particle.speed * 1.8;
+                                ctx.fillStyle = explosion.color;
+                                ctx.globalAlpha = 0.8 * (1 - progress);
+                                ctx.beginPath();
+                                ctx.arc(px, py, Math.max(1, cellSize * 0.08), 0, Math.PI * 2);
+                                ctx.fill();
+                            });
+                            ctx.restore();
+                        }
+                    };
+                    
+                    const render = () => {
+                        const c = getCanvas();
+                        if (!c || !window.gameEngine) return;
+                        
+                        // Ensure canvas is properly sized before rendering
+                        ensureCanvasSize(c);
+                        
+                        const engine = window.gameEngine;
+                        const grid = engine.grid;
+                        const size = engine.gridSize;
+                        const baseSize = 8;
+                        const cellSize = baseSize * state.zoom;
+                        
+                        // Clear
+                        ctx.fillStyle = '#0a0a15';
+                        ctx.fillRect(0, 0, c.width, c.height);
+                        
+                        ctx.save();
+                        ctx.translate(state.panX, state.panY);
+                        
+                        // Draw grid lines (subtle) - only if zoomed in enough
+                        if (cellSize >= 6) {
+                            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+                            ctx.lineWidth = 0.5;
+                            const startX = Math.max(0, Math.floor(-state.panX / cellSize));
+                            const endX = Math.min(size, Math.ceil((c.width - state.panX) / cellSize));
+                            const startY = Math.max(0, Math.floor(-state.panY / cellSize));
+                            const endY = Math.min(size, Math.ceil((c.height - state.panY) / cellSize));
+                            
+                            for (let i = startX; i <= endX; i++) {
+                                ctx.beginPath();
+                                ctx.moveTo(i * cellSize, startY * cellSize);
+                                ctx.lineTo(i * cellSize, endY * cellSize);
+                                ctx.stroke();
+                            }
+                            for (let i = startY; i <= endY; i++) {
+                                ctx.beginPath();
+                                ctx.moveTo(startX * cellSize, i * cellSize);
+                                ctx.lineTo(endX * cellSize, i * cellSize);
+                                ctx.stroke();
+                            }
+                        }
+                        
+                        // Draw cells - only visible ones
+                        const startX = Math.max(0, Math.floor(-state.panX / cellSize) - 1);
+                        const endX = Math.min(size, Math.ceil((c.width - state.panX) / cellSize) + 1);
+                        const startY = Math.max(0, Math.floor(-state.panY / cellSize) - 1);
+                        const endY = Math.min(size, Math.ceil((c.height - state.panY) / cellSize) + 1);
+                        
+                        // Draw tactical fields
+                        if (engine.fields && engine.fields.length) {
+                            engine.fields.forEach(field => {
+                                if (field.x < startX || field.x > endX || field.y < startY || field.y > endY) return;
+                                const def = FIELD_TYPE_BY_ID[field.type];
+                                if (!def) return;
+                                const fx = field.x * cellSize;
+                                const fy = field.y * cellSize;
+                                ctx.save();
+                                ctx.globalAlpha = 0.45;
+                                ctx.fillStyle = def.color;
+                                ctx.fillRect(fx + 1, fy + 1, cellSize - 2, cellSize - 2);
+                                ctx.globalAlpha = 0.9;
+                                ctx.strokeStyle = def.color;
+                                ctx.lineWidth = 1;
+                                ctx.strokeRect(fx + 0.5, fy + 0.5, cellSize - 1, cellSize - 1);
+                                if (cellSize >= 14 && def.symbol) {
+                                    ctx.fillStyle = '#fff';
+                                    ctx.globalAlpha = 0.85;
+                                    ctx.font = `${Math.max(8, Math.floor(cellSize * 0.45))}px monospace`;
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.fillText(def.symbol, fx + cellSize / 2, fy + cellSize / 2);
+                                }
+                                ctx.restore();
+                            });
+                        }
+
+                        for (let y = startY; y < endY; y++) {
+                            for (let x = startX; x < endX; x++) {
+                                const cell = grid[y]?.[x];
+                                if (!cell) continue;
+                                
+                                const player = engine.players[cell.owner];
+                                const color = PLAYER_COLORS[player?.colorIndex ?? 8];
+                                const totalStats = cell.str + cell.con + cell.dex + cell.chr + cell.wis + cell.int;
+                                const intensity = Math.min(1, totalStats / 90);
+                                
+                                const cx = x * cellSize + cellSize / 2;
+                                const cy = y * cellSize + cellSize / 2;
+                                const radius = (cellSize / 2 - 1) * (0.6 + intensity * 0.4);
+                                
+                                // Body
+                                ctx.fillStyle = color;
+                                ctx.globalAlpha = 0.5 + intensity * 0.5;
+                                ctx.beginPath();
+                                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                                ctx.fill();
+                                
+                                // Cute face for larger cells
+                                if (cellSize >= 12) {
+                                    ctx.globalAlpha = 1;
+                                    ctx.fillStyle = '#000';
+                                    const eyeOffset = radius * 0.3;
+                                    const eyeSize = Math.max(1, radius * 0.15);
+                                    ctx.beginPath();
+                                    ctx.arc(cx - eyeOffset, cy - eyeOffset * 0.5, eyeSize, 0, Math.PI * 2);
+                                    ctx.arc(cx + eyeOffset, cy - eyeOffset * 0.5, eyeSize, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    
+                                    if (cell.chr > 12) {
+                                        ctx.strokeStyle = '#000';
+                                        ctx.lineWidth = 1;
+                                        ctx.beginPath();
+                                        ctx.arc(cx, cy + eyeOffset * 0.3, radius * 0.25, 0.1 * Math.PI, 0.9 * Math.PI);
+                                        ctx.stroke();
+                                    }
+                                }
+                                
+                                ctx.globalAlpha = 1;
+                            }
+                        }
+                        
+                        drawExplosions(cellSize);
+
+                        // Highlight hovered cell
+                        if (state.hoveredCell) {
+                            const { x, y } = state.hoveredCell;
+                            ctx.strokeStyle = '#fff';
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                        
+                        ctx.restore();
+                    };
+                    
+                    const loop = () => {
+                        if (needsRender || explosions.length) {
+                            render();
+                            needsRender = false;
+                            if (explosions.length) {
+                                needsRender = true;
+                            }
+                        }
+                        animFrameId = requestAnimationFrame(loop);
+                    };
+                    
+                    const requestRender = () => { needsRender = true; };
+
+                    const addExplosion = (detail) => {
+                        if (!detail) return;
+                        explosions.push({
+                            x: detail.x,
+                            y: detail.y,
+                            color: detail.color || '#fff',
+                            start: performance.now(),
+                            duration: 650,
+                            particles: Array.from({ length: 6 }, () => ({
+                                angle: Math.random() * Math.PI * 2,
+                                speed: 0.6 + Math.random() * 1.2
+                            }))
+                        });
+                        requestRender();
+                    };
+                    
+                    const initCanvas = () => {
+                        const c = getCanvas();
+                        if (!c || !window.gameEngine) return;
+                        
+                        const wrapper = c.parentElement;
+                        const rect = wrapper.getBoundingClientRect();
+                        
+                        // Use getBoundingClientRect for more reliable dimensions
+                        // Fallback to reasonable defaults if still 0
+                        const width = rect.width > 0 ? rect.width : 800;
+                        const height = rect.height > 0 ? rect.height : 600;
+                        
+                        c.width = width;
+                        c.height = height;
+                        
+                        console.log('Canvas initialized:', width, 'x', height);
+                        
+                        // Center the grid
+                        const size = window.gameEngine.gridSize;
+                        const totalSize = size * 8 * state.zoom;
+                        state.panX = (c.width - totalSize) / 2;
+                        state.panY = (c.height - totalSize) / 2;
+                        
+                        requestRender();
+                        if (!animFrameId) loop();
+                    };
+                    
+                    window.addEventListener('game.initialized', () => {
+                        // Use requestAnimationFrame for better timing
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(initCanvas);
+                        });
+                    });
+                    
+                    window.addEventListener('game.stateChanged', requestRender);
+                    window.addEventListener('game.cellExplode', (e) => {
+                        addExplosion(e.detail);
+                    });
+                    window.addEventListener('resize', () => {
+                        requestAnimationFrame(initCanvas);
+                    });
+                    
+                    // Use ResizeObserver for more reliable sizing
+                    const resizeObserver = new ResizeObserver((entries) => {
+                        for (const entry of entries) {
+                            if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+                                initCanvas();
+                            }
+                        }
+                    });
+                    
+                    // Observe the wrapper element once canvas is available
+                    window.addEventListener('game.initialized', () => {
+                        const c = getCanvas();
+                        if (c && c.parentElement) {
+                            resizeObserver.observe(c.parentElement);
+                        }
+                    });
+                    
+                    // Zoom with mouse wheel
+                    this.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        const c = getCanvas();
+                        if (!c) return;
+                        
+                        const rect = c.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left;
+                        const mouseY = e.clientY - rect.top;
+                        
+                        const oldZoom = state.zoom;
+                        const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+                        state.zoom = Math.max(0.25, Math.min(4, state.zoom * zoomDelta));
+                        
+                        // Zoom towards mouse position
+                        const zoomRatio = state.zoom / oldZoom;
+                        state.panX = mouseX - (mouseX - state.panX) * zoomRatio;
+                        state.panY = mouseY - (mouseY - state.panY) * zoomRatio;
+                        
+                        requestRender();
+                    }, { passive: false });
+                    
+                    // Pan with middle mouse or shift+drag
+                    this.addEventListener('mousedown', (e) => {
+                        if (e.button === 1 || e.shiftKey) {
+                            state.isDragging = true;
+                            state.lastMouse = { x: e.clientX, y: e.clientY };
+                            e.preventDefault();
+                        }
+                    });
+                    
+                    this.addEventListener('mousemove', (e) => {
+                        const c = getCanvas();
+                        if (!c) return;
+                        
+                        if (state.isDragging && state.lastMouse) {
+                            state.panX += e.clientX - state.lastMouse.x;
+                            state.panY += e.clientY - state.lastMouse.y;
+                            state.lastMouse = { x: e.clientX, y: e.clientY };
+                            requestRender();
+                            return;
+                        }
+                        
+                        const rect = c.getBoundingClientRect();
+                        const cellSize = 8 * state.zoom;
+                        const x = Math.floor((e.clientX - rect.left - state.panX) / cellSize);
+                        const y = Math.floor((e.clientY - rect.top - state.panY) / cellSize);
+                        
+                        if (!state.hoveredCell || state.hoveredCell.x !== x || state.hoveredCell.y !== y) {
+                            state.hoveredCell = { x, y };
+                            window.dispatchEvent(new CustomEvent('cell.hover', { detail: { x, y } }));
+                            requestRender();
+                        }
+                    });
+                    
+                    this.addEventListener('mouseup', () => {
+                        state.isDragging = false;
+                        state.lastMouse = null;
+                    });
+                    
+                    this.addEventListener('mouseleave', () => {
+                        state.isDragging = false;
+                        state.lastMouse = null;
+                    });
+                    
+                    // Handle click to place cell
+                    this.addEventListener('click', (e) => {
+                        if (state.isDragging) return;
+                        const c = getCanvas();
+                        if (!c || !window.gameEngine) return;
+                        
+                        const rect = c.getBoundingClientRect();
+                        const cellSize = 8 * state.zoom;
+                        const x = Math.floor((e.clientX - rect.left - state.panX) / cellSize);
+                        const y = Math.floor((e.clientY - rect.top - state.panY) / cellSize);
+                        
+                        window.gameEngine.placeCell(x, y);
+                        window.dispatchEvent(new CustomEvent('game.stateChanged'));
+                    });
+                    
+                    // Zoom buttons
+                    window.addEventListener('zoom.in', () => {
+                        const c = getCanvas();
+                        if (!c) return;
+                        const oldZoom = state.zoom;
+                        state.zoom = Math.min(4, state.zoom * 1.25);
+                        const zoomRatio = state.zoom / oldZoom;
+                        state.panX = c.width/2 - (c.width/2 - state.panX) * zoomRatio;
+                        state.panY = c.height/2 - (c.height/2 - state.panY) * zoomRatio;
+                        requestRender();
+                    });
+                    
+                    window.addEventListener('zoom.out', () => {
+                        const c = getCanvas();
+                        if (!c) return;
+                        const oldZoom = state.zoom;
+                        state.zoom = Math.max(0.25, state.zoom * 0.8);
+                        const zoomRatio = state.zoom / oldZoom;
+                        state.panX = c.width/2 - (c.width/2 - state.panX) * zoomRatio;
+                        state.panY = c.height/2 - (c.height/2 - state.panY) * zoomRatio;
+                        requestRender();
+                    });
+                    
+                    window.addEventListener('zoom.reset', () => {
+                        state.zoom = 1;
+                        initCanvas();
+                    });
+                    
+                    this.addEventListener('disconnected', () => {
+                        if (animFrameId) cancelAnimationFrame(animFrameId);
+                    });
+                }),
+                
+                html.div({ class: 'game-canvas-wrapper' },
+                    html.canvas({ id: 'game-canvas' }),
+                    html.div({ class: 'zoom-controls' },
+                        html.button({ 
+                            class: 'zoom-btn',
+                            click: () => window.dispatchEvent(new CustomEvent('zoom.in')),
+                            title: 'Zoom In'
+                        }, '+'),
+                        html.button({ 
+                            class: 'zoom-btn',
+                            click: () => window.dispatchEvent(new CustomEvent('zoom.out')),
+                            title: 'Zoom Out'
+                        }, '−'),
+                        html.button({ 
+                            class: 'zoom-btn',
+                            click: () => window.dispatchEvent(new CustomEvent('zoom.reset')),
+                            title: 'Reset View'
+                        }, '⟲')
+                    )
+                )
+            ];
+        });
+        
+        // CELL INSPECTOR COMPONENT
+        pfusch('cell-inspector', {
+            cell: null,
+            field: null,
+            x: 0,
+            y: 0
+        }, (state) => {
+            return [
+                script(function() {
+                    window.addEventListener('cell.hover', (e) => {
+                        const { x, y } = e.detail;
+                        if (!window.gameEngine) return;
+                        state.x = x;
+                        state.y = y;
+                        state.cell = window.gameEngine.getCell(x, y);
+                        const field = window.gameEngine.getFieldAt(x, y);
+                        state.field = field ? window.gameEngine.getFieldDefinition(field.type) : null;
+                    });
+                }),
+
+                !state.cell && !state.field ? html.div({ class: 'text-muted text-xs text-center' }, 
+                    'Hover over a cell to inspect'
+                ) : html.div({ class: 'flex flex-col gap-1' },
+                    html.div({ class: 'text-xs text-muted' }, `(${state.x}, ${state.y})`),
+                    state.field ? html.div({ style: `color: ${state.field.color}; font-size: 0.8rem; font-weight: 600;` }, 
+                        state.field.name
+                    ) : null,
+                    state.field ? html.div({ class: 'text-xs text-muted', style: 'margin-bottom: 0.25rem' }, 
+                        state.field.description
+                    ) : null,
+                    !state.cell ? html.div({ class: 'text-muted text-xs text-center' }, 
+                        'Empty tile'
+                    ) : [
+                        html.div({ 
+                            class: 'text-small',
+                            style: `color: ${PLAYER_COLORS[window.gameEngine?.players[state.cell.owner]?.colorIndex ?? 0]}`
+                        }, window.gameEngine?.players[state.cell.owner]?.name?.replace(/^(Player \d+: |NPC: )/, '') ?? 'Unknown'),
+                        
+                        html.div({ class: 'grid-3', style: 'margin-top: 0.5rem' },
+                            html.div({ class: 'stat-badge', title: 'Strength: Primary combat stat, determines attack power' },
+                                html.span({ class: 'stat-value' }, `${state.cell.str}`),
+                                html.span({ class: 'stat-label' }, 'STR')
+                            ),
+                            html.div({ class: 'stat-badge', title: 'Constitution: Survival & defense, helps cells live longer' },
+                                html.span({ class: 'stat-value' }, `${state.cell.con}`),
+                                html.span({ class: 'stat-label' }, 'CON')
+                            ),
+                            html.div({ class: 'stat-badge', title: 'Dexterity: Evasion & initiative, acts first in combat' },
+                                html.span({ class: 'stat-value' }, `${state.cell.dex}`),
+                                html.span({ class: 'stat-label' }, 'DEX')
+                            ),
+                            html.div({ class: 'stat-badge', title: 'Charisma: Breeding success, higher offspring chance' },
+                                html.span({ class: 'stat-value' }, `${state.cell.chr}`),
+                                html.span({ class: 'stat-label' }, 'CHR')
+                            ),
+                            html.div({ class: 'stat-badge', title: 'Wisdom: Tactical awareness, combat modifier' },
+                                html.span({ class: 'stat-value' }, `${state.cell.wis}`),
+                                html.span({ class: 'stat-label' }, 'WIS')
+                            ),
+                            html.div({ class: 'stat-badge', title: 'Intelligence: Strategy & adaptability, combat modifier' },
+                                html.span({ class: 'stat-value' }, `${state.cell.int}`),
+                                html.span({ class: 'stat-label' }, 'INT')
+                            )
+                        ),
+                        
+                        html.div({ class: 'text-xs', style: 'margin-top: 0.5rem' },
+                            html.span({ class: 'text-muted' }, 'Total: '),
+                            html.span({ class: 'text-warning' }, 
+                                `${state.cell.str + state.cell.con + state.cell.dex + state.cell.chr + state.cell.wis + state.cell.int}`
+                            ),
+                            html.span({ class: 'text-muted' }, ' | Age: '),
+                            html.span(`${state.cell.age}`)
+                        )
+                    ]
+                )
+            ];
+        });
+        
+        // BATTLE LOG COMPONENT
+        pfusch('battle-log', {
+            logs: []
+        }, (state) => {
+            return [
+                script(function() {
+                    window.addEventListener('game.battleLog', (e) => {
+                        state.logs = [e.detail, ...state.logs].slice(0, 30);
+                    });
+                    window.addEventListener('game.initialized', () => {
+                        state.logs = [];
+                    });
+                }),
+                
+                html.div({ 
+                    class: 'flex flex-col',
+                    style: 'max-height: 200px; overflow-y: auto; font-size: 0.7rem'
+                },
+                    state.logs.length === 0 
+                        ? html.div({ class: 'text-muted text-center' }, 'No battles yet')
+                        : state.logs.map(log => 
+                            html.div({ 
+                                style: `padding: 0.2rem; border-left: 2px solid ${
+                                    log.type === 'battle' ? 'var(--accent)' :
+                                    log.type === 'birth' ? 'var(--success)' :
+                                    log.type === 'death' ? 'var(--warning)' : 'var(--info)'
+                                }`
+                            }, log.message)
+                        )
+                )
+            ];
+        });
+
+        // GAME OVER MODAL
+        pfusch('game-over-modal', {
+            visible: false,
+            summary: null,
+            statMode: 'avg'
+        }, (state) => {
+            const statSeriesConfig = [
+                { key: 'str', label: 'STR', color: '#ef4444' },
+                { key: 'con', label: 'CON', color: '#f97316' },
+                { key: 'dex', label: 'DEX', color: '#22c55e' },
+                { key: 'chr', label: 'CHR', color: '#ec4899' },
+                { key: 'wis', label: 'WIS', color: '#a855f7' },
+                { key: 'int', label: 'INT', color: '#3b82f6' }
+            ];
+
+            return [
+                script(function() {
+                    const getCanvas = (id) => {
+                        return this.shadowRoot?.querySelector(id) || this.querySelector(id);
+                    };
+
+                    const drawLineChart = (canvas, series, options = {}) => {
+                        if (!canvas || !series.length) return;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return;
+                        const rect = canvas.getBoundingClientRect();
+                        if (!rect.width || !rect.height) return;
+                        const dpr = window.devicePixelRatio || 1;
+                        canvas.width = rect.width * dpr;
+                        canvas.height = rect.height * dpr;
+                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                        const padding = { top: 18, right: 14, bottom: 24, left: 38 };
+                        const plotW = rect.width - padding.left - padding.right;
+                        const plotH = rect.height - padding.top - padding.bottom;
+                        if (plotW <= 0 || plotH <= 0) return;
+
+                        const values = series.flatMap(item => item.values);
+                        const maxValue = Math.max(1, ...values);
+                        const minValue = Math.min(0, ...values);
+                        const range = Math.max(1, maxValue - minValue);
+
+                        ctx.clearRect(0, 0, rect.width, rect.height);
+                        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                        ctx.fillRect(0, 0, rect.width, rect.height);
+
+                        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                        ctx.lineWidth = 1;
+                        const gridLines = 4;
+                        for (let i = 0; i <= gridLines; i++) {
+                            const y = padding.top + (plotH * i) / gridLines;
+                            ctx.beginPath();
+                            ctx.moveTo(padding.left, y);
+                            ctx.lineTo(padding.left + plotW, y);
+                            ctx.stroke();
+                        }
+
+                        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                        ctx.font = '11px sans-serif';
+                        ctx.textAlign = 'right';
+                        ctx.textBaseline = 'middle';
+                        for (let i = 0; i <= gridLines; i++) {
+                            const value = maxValue - (range * i) / gridLines;
+                            const y = padding.top + (plotH * i) / gridLines;
+                            ctx.fillText(Math.round(value).toString(), padding.left - 6, y);
+                        }
+
+                        const pointCount = series[0].values.length;
+                        const getX = (index) => {
+                            if (pointCount <= 1) return padding.left + plotW / 2;
+                            return padding.left + (index / (pointCount - 1)) * plotW;
+                        };
+                        const getY = (value) => {
+                            return padding.top + plotH - ((value - minValue) / range) * plotH;
+                        };
+
+                        series.forEach(item => {
+                            ctx.strokeStyle = item.color;
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            item.values.forEach((value, index) => {
+                                const x = getX(index);
+                                const y = getY(value);
+                                if (index === 0) ctx.moveTo(x, y);
+                                else ctx.lineTo(x, y);
+                            });
+                            ctx.stroke();
+                        });
+                    };
+
+                    const drawCharts = () => {
+                        if (!state.visible || !state.summary) return;
+                        const history = state.summary.history || [];
+                        if (history.length === 0) return;
+
+                        const statsCanvas = getCanvas('#stats-chart');
+                        const sizeCanvas = getCanvas('#civ-size-chart');
+
+                        const statSource = state.statMode === 'total' ? 'totalStats' : 'avgStats';
+                        const statSeries = statSeriesConfig.map(stat => ({
+                            label: stat.label,
+                            color: stat.color,
+                            values: history.map(entry => entry[statSource]?.[stat.key] ?? 0)
+                        }));
+                        drawLineChart(statsCanvas, statSeries);
+
+                        const sizeSeries = state.summary.players.map(player => ({
+                            label: player.name,
+                            color: PLAYER_COLORS[player.colorIndex],
+                            values: history.map(entry => {
+                                const match = entry.civSizes?.find(item => item.id === player.id);
+                                return match ? match.count : 0;
+                            })
+                        }));
+                        drawLineChart(sizeCanvas, sizeSeries);
+                    };
+
+                    const scheduleDraw = () => {
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(drawCharts);
+                        });
+                    };
+
+                    window.addEventListener('game.over', (e) => {
+                        state.summary = e.detail;
+                        state.visible = true;
+                        scheduleDraw();
+                    });
+                    window.addEventListener('game.start', () => {
+                        state.summary = null;
+                        state.visible = false;
+                    });
+                    window.addEventListener('game.over.redraw', scheduleDraw);
+                    window.addEventListener('resize', scheduleDraw);
+                }),
+                
+                !state.visible || !state.summary ? null : html.div({ class: 'modal-overlay' },
+                    html.div({ class: 'modal', style: 'max-width: 900px;' },
+                        html.h2('🏆 Civilization Won'),
+                        html.p({ class: 'text-center text-muted', style: 'margin-bottom: 1rem' },
+                            state.summary.winner
+                        ),
+                        html.div({ class: 'card', style: 'background: var(--bg-dark); margin-bottom: 1rem;' },
+                            html.div({ class: 'card-title' }, '📊 Civilization Stats'),
+                            html.div({ 
+                                style: 'display: grid; grid-template-columns: 1.5fr repeat(5, 1fr); gap: 0.35rem; font-size: 0.75rem;'
+                            },
+                                html.div({ class: 'text-muted' }, 'Civilization'),
+                                html.div({ class: 'text-muted' }, 'Births'),
+                                html.div({ class: 'text-muted' }, 'Deaths'),
+                                html.div({ class: 'text-muted' }, 'Battles W'),
+                                html.div({ class: 'text-muted' }, 'Battles L'),
+                                html.div({ class: 'text-muted' }, 'Cells'),
+                                ...state.summary.players.map(player => 
+                                    [
+                                        html.div({ style: `color: ${PLAYER_COLORS[player.colorIndex]}; font-weight: 600;` }, 
+                                            player.name.replace(/^(Player \d+: |NPC: )/, '')
+                                        ),
+                                        html.div(`${player.births}`),
+                                        html.div(`${player.deaths}`),
+                                        html.div(`${player.battlesWon}`),
+                                        html.div(`${player.battlesLost}`),
+                                        html.div(`${player.cellCount}`)
+                                    ]
+                                ).flat()
+                            )
+                        ),
+                        html.div({ class: 'card', style: 'background: var(--bg-dark); margin-bottom: 1rem;' },
+                            html.div({ class: 'flex items-center justify-between', style: 'margin-bottom: 0.5rem;' },
+                                html.div({ class: 'card-title' }, '📈 Stat Timeline'),
+                                html.div({ class: 'flex gap-1' },
+                                    html.button({
+                                        class: state.statMode === 'avg' ? 'btn btn-success btn-small' : 'btn btn-secondary btn-small',
+                                        click: () => {
+                                            state.statMode = 'avg';
+                                            window.dispatchEvent(new CustomEvent('game.over.redraw'));
+                                        }
+                                    }, 'Avg'),
+                                    html.button({
+                                        class: state.statMode === 'total' ? 'btn btn-success btn-small' : 'btn btn-secondary btn-small',
+                                        click: () => {
+                                            state.statMode = 'total';
+                                            window.dispatchEvent(new CustomEvent('game.over.redraw'));
+                                        }
+                                    }, 'Total')
+                                )
+                            ),
+                            html.div({ class: 'flex flex-wrap gap-1', style: 'margin-bottom: 0.5rem;' },
+                                ...statSeriesConfig.map(stat => 
+                                    html.div({ class: 'text-xs', style: `color: ${stat.color}; font-weight: 600;` }, stat.label)
+                                )
+                            ),
+                            html.canvas({ id: 'stats-chart', style: 'width: 100%; height: 220px; border-radius: 8px;' })
+                        ),
+                        html.div({ class: 'card', style: 'background: var(--bg-dark);' },
+                            html.div({ class: 'card-title' }, '👥 Civilization Sizes'),
+                            html.div({ class: 'flex flex-wrap gap-1', style: 'margin-bottom: 0.5rem;' },
+                                ...state.summary.players.map(player =>
+                                    html.div({ class: 'text-xs', style: `color: ${PLAYER_COLORS[player.colorIndex]}; font-weight: 600;` }, 
+                                        player.name.replace(/^(Player \d+: |NPC: )/, '')
+                                    )
+                                )
+                            ),
+                            html.canvas({ id: 'civ-size-chart', style: 'width: 100%; height: 220px; border-radius: 8px;' })
+                        )
+                    )
+                )
+            ];
+        });
+        
+        // ============================================
+        // GAME SETUP COMPONENT
+        // ============================================
+        pfusch('game-setup', {
+            visible: true,
+            playerCount: 2,
+            gridSize: 100,
+            npcCount: 2,
+            loadedState: null
+        }, (state, trigger) => {
+            if (!state.visible) return [];
+            
+            const startGame = () => {
+                const config = {
+                    playerCount: state.playerCount,
+                    gridSize: state.gridSize,
+                    npcCount: state.npcCount,
+                    loadedState: state.loadedState
+                };
+                window.dispatchEvent(new CustomEvent('game.start', { detail: config }));
+                state.visible = false;
+            };
+            
+            const handleFileLoad = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        state.loadedState = JSON.parse(ev.target.result);
+                        alert('Game state loaded! Click Start to continue the game.');
+                    } catch (err) {
+                        alert('Invalid save file!');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            return [
+                html.div({ class: 'modal-overlay' },
+                    html.div({ class: 'modal' },
+                        html.h2('🏰 Civilization Wars'),
+                        html.p({ class: 'text-center text-muted', style: 'margin-bottom: 1.5rem' },
+                            'Breed your civilization to dominate the world!'
+                        ),
+                        
+                        html.div({ class: 'flex flex-col gap-2' },
+                            html.label('Number of Players'),
+                            html.select({ 
+                                change: (e) => state.playerCount = parseInt(e.target.value)
+                            },
+                                ...[1,2,3,4,5].map(n => 
+                                    html.option({ value: n, selected: n === state.playerCount }, `${n} Players`)
+                                )
+                            ),
+                            
+                            html.label({ style: 'margin-top: 0.5rem' }, 'Grid Size'),
+                            html.select({
+                                change: (e) => state.gridSize = parseInt(e.target.value)
+                            },
+                                html.option({ value: 50, selected: 50 === state.gridSize }, '50x50 (Small)'),
+                                html.option({ value: 100, selected: 100 === state.gridSize }, '100x100 (Medium)'),
+                                html.option({ value: 150, selected: 150 === state.gridSize }, '150x150 (Large)'),
+                                html.option({ value: 200, selected: 200 === state.gridSize }, '200x200 (Epic)')
+                            ),
+                            
+                            html.label({ style: 'margin-top: 0.5rem' }, 'NPC Civilizations'),
+                            html.select({
+                                change: (e) => state.npcCount = parseInt(e.target.value)
+                            },
+                                ...[0,1,2,3,4].map(n => 
+                                    html.option({ value: n, selected: n === state.npcCount }, `${n} NPCs`)
+                                )
+                            ),
+                            
+                            html.div({ style: 'margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1)' },
+                                html.label('Or load a saved game:'),
+                                html.input({ 
+                                    type: 'file', 
+                                    accept: '.json',
+                                    change: handleFileLoad,
+                                    style: 'margin-top: 0.5rem'
+                                })
+                            ),
+                            
+                            html.button({ 
+                                class: 'btn btn-success',
+                                style: 'margin-top: 1.5rem; width: 100%; padding: 1rem; font-size: 1.1rem',
+                                click: startGame
+                            }, state.loadedState ? '▶ Continue Loaded Game' : '▶ Start New Game')
+                        ),
+                        
+                        html.div({ class: 'card', style: 'margin-top: 1.5rem; background: var(--bg-dark)' },
+                            html.h4({ style: 'color: var(--info); margin-bottom: 0.5rem' }, '📜 How to Play'),
+                            html.ul({ class: 'text-small text-muted', style: 'padding-left: 1.2rem; line-height: 1.6' },
+                                html.li('Click to place cells for your civilization'),
+                                html.li('Use mouse wheel to zoom, shift+drag to pan'),
+                                html.li('Adjust breeding sliders to evolve your civilization'),
+                                html.li('Higher stats = stronger but fewer offspring'),
+                                html.li('End turn to simulate a generation'),
+                                html.li('Special fields grant powerful effects when claimed'),
+                                html.li('Export to share game via email!')
+                            )
+                        )
+                    )
+                )
+            ];
+        });
+        
+        // ============================================
+        // MAIN GAME COMPONENT (defined LAST)
+        // ============================================
+        pfusch('game-main', {
+            visible: false,
+            generation: 0,
+            currentPlayer: 0,
+            players: []
+        }, (state, trigger) => {
+            
+            return [
+                script(function() {
+                    window.addEventListener('game.start', (e) => {
+                        const config = e.detail;
+                        window.gameEngine = new GameEngine(config);
+                        
+                        state.visible = true;
+                        state.generation = window.gameEngine.generation;
+                        state.currentPlayer = window.gameEngine.currentPlayer;
+                        state.players = window.gameEngine.players;
+                        
+                        // Notify other components after a brief delay to ensure DOM is ready
+                        setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('game.initialized'));
+                        }, 100);
+                    });
+                    
+                    window.addEventListener('game.stateChanged', () => {
+                        if (!window.gameEngine) return;
+                        state.generation = window.gameEngine.generation;
+                        state.currentPlayer = window.gameEngine.currentPlayer;
+                        state.players = [...window.gameEngine.players];
+                    });
+                }),
+                
+                !state.visible ? null : html.div({ class: 'main-layout' },
+                    // Left sidebar
+                    html.div({ class: 'sidebar' },
+                        html.div({ class: 'card' },
+                            html.div({ class: 'card-title' }, '🎮 Controls'),
+                            { element: document.createElement('game-controls') }
+                        ),
+                        html.div({ class: 'card' },
+                            html.div({ class: 'card-title' }, '🧬 Breeding'),
+                            { element: document.createElement('breeding-controls') }
+                        ),
+                        html.div({ class: 'card' },
+                            html.div({ class: 'card-title' }, '👥 Players'),
+                            { element: document.createElement('player-list') }
+                        )
+                    ),
+                    
+                    // Main game area
+                    html.div({ style: 'overflow: hidden; height: 100%' },
+                        { element: document.createElement('game-board') }
+                    ),
+                    
+                    // Right sidebar
+                    html.div({ class: 'sidebar' },
+                        html.div({ class: 'card' },
+                            html.div({ class: 'card-title' }, '🔍 Inspector'),
+                            { element: document.createElement('cell-inspector') }
+                        ),
+                        html.div({ class: 'card' },
+                            html.div({ class: 'card-title' }, '📜 Log'),
+                            { element: document.createElement('battle-log') }
+                        ),
+                        html.div({ class: 'card' },
+                            html.div({ class: 'card-title' }, '📊 Stats'),
+                            { element: document.createElement('game-stats') }
+                        )
+                    )
+                )
+            ];
+        });
+    </script>
+</body>
+</html>
