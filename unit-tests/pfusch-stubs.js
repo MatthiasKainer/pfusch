@@ -1,7 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import os from 'node:os';
+import { createHash } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+const original = {
+  window: globalThis.window,
+  document: globalThis.document,
+  Node: globalThis.Node,
+  customElements: globalThis.customElements,
+  HTMLElement: globalThis.HTMLElement,
+  FormData: globalThis.FormData,
+  CustomEvent: globalThis.CustomEvent,
+  requestAnimationFrame: globalThis.requestAnimationFrame,
+  CSSStyleSheet: globalThis.CSSStyleSheet,
+  fetch: globalThis.fetch
+};
 class FakeClassList {
   constructor() {
     this._set = new Set();
@@ -649,6 +663,49 @@ const findCallerFile = () => {
   return null;
 };
 
+const PFUSCH_REMOTE_URL = new URL('https://matthiaskainer.github.io/pfusch/pfusch.js');
+const PFUSCH_CDN_RE = /(['"])https:\/\/matthiaskainer\.github\.io\/pfusch\/pfusch(?:\.min)?\.js\1/g;
+const pfuschImportCache = new Map();
+const pfuschRemoteHash = createHash('sha1').update(PFUSCH_REMOTE_URL.href).digest('hex').slice(0, 8);
+const pfuschRemotePath = path.join(os.tmpdir(), `pfusch.remote.${pfuschRemoteHash}.js`);
+let pfuschRemotePromise = null;
+
+const ensureRemotePfusch = async () => {
+  if (pfuschRemotePromise) return pfuschRemotePromise;
+  if (fs.existsSync(pfuschRemotePath)) return pathToFileURL(pfuschRemotePath);
+  pfuschRemotePromise = (async () => {
+    if (typeof original.fetch !== 'function') {
+      throw new Error('import_for_test requires global fetch to download pfusch when no pfuschPath is provided');
+    }
+    const response = await original.fetch(PFUSCH_REMOTE_URL.href);
+    if (!response.ok) {
+      throw new Error(`import_for_test failed to download pfusch from ${PFUSCH_REMOTE_URL.href} (status ${response.status})`);
+    }
+    const source = await response.text();
+    const tempPath = `${pfuschRemotePath}.tmp`;
+    await fs.promises.writeFile(tempPath, source, 'utf8');
+    await fs.promises.rename(tempPath, pfuschRemotePath);
+    return pathToFileURL(pfuschRemotePath);
+  })().catch(err => {
+    pfuschRemotePromise = null;
+    throw err;
+  });
+  return pfuschRemotePromise;
+};
+
+const resolveFileUrl = (specifier, parentFilePath) => {
+  if (specifier instanceof URL) return specifier;
+  if (typeof specifier !== 'string') {
+    throw new Error('import_for_test expects a file path string or URL');
+  }
+  if (/^[a-zA-Z]+:/.test(specifier)) return new URL(specifier);
+  if (path.isAbsolute(specifier)) return pathToFileURL(specifier);
+  if (parentFilePath) {
+    return pathToFileURL(path.resolve(path.dirname(parentFilePath), specifier));
+  }
+  return pathToFileURL(path.resolve(process.cwd(), specifier));
+};
+
 const resolveHtmlPath = (filePath) => {
   if (filePath instanceof URL) return fileURLToPath(filePath);
   if (typeof filePath !== 'string') {
@@ -808,6 +865,59 @@ export function pfuschTest(tagName, attributes = {}) {
   return new PfuschNodeCollection([element.shadowRoot || element], element);
 }
 
+export async function import_for_test(modulePath, pfuschPath) {
+  const caller = findCallerFile();
+  const moduleUrl = resolveFileUrl(modulePath, caller);
+  if (moduleUrl.protocol !== 'file:') {
+    throw new Error('import_for_test only supports local file paths for modules');
+  }
+  const moduleFsPath = fileURLToPath(moduleUrl);
+  if (!fs.existsSync(moduleFsPath)) {
+    throw new Error(`import_for_test could not find module at ${moduleFsPath}`);
+  }
+
+  let pfuschUrl;
+  if (pfuschPath == null) {
+    pfuschUrl = await ensureRemotePfusch();
+  } else {
+    pfuschUrl = resolveFileUrl(pfuschPath, caller);
+    if (pfuschUrl.protocol === 'file:' && !fs.existsSync(fileURLToPath(pfuschUrl))) {
+      pfuschUrl = resolveFileUrl(pfuschPath, moduleFsPath);
+    }
+    if (pfuschUrl.protocol !== 'file:') {
+      throw new Error('import_for_test only supports local file paths for pfusch');
+    }
+    const pfuschFsPath = fileURLToPath(pfuschUrl);
+    if (!fs.existsSync(pfuschFsPath)) {
+      throw new Error(`import_for_test could not find pfusch at ${pfuschFsPath}`);
+    }
+  }
+
+  const cacheKey = `${moduleUrl.href}::${pfuschUrl.href}`;
+  const cached = pfuschImportCache.get(cacheKey);
+  if (cached) return import(cached);
+
+  const source = await fs.promises.readFile(moduleFsPath, 'utf8');
+  const replaced = source.replace(PFUSCH_CDN_RE, `$1${pfuschUrl.href}$1`);
+  if (replaced === source) {
+    throw new Error(`import_for_test did not find a pfusch CDN import in ${moduleFsPath}`);
+  }
+
+  const ext = path.extname(moduleFsPath) || '.js';
+  const base = path.basename(moduleFsPath, ext);
+  const dir = path.dirname(moduleFsPath);
+  const hash = createHash('sha1').update(cacheKey).digest('hex').slice(0, 8);
+  // Keep the shim next to the original so relative imports keep working.
+  const tempPath = path.join(dir, `.${base}.pfusch-test.${hash}${ext}`);
+  await fs.promises.writeFile(tempPath, replaced, 'utf8');
+
+  const tempUrl = pathToFileURL(tempPath).href;
+  const module = await import(tempUrl);
+  pfuschImportCache.set(cacheKey, tempUrl);
+  await fs.promises.unlink(tempPath).catch(() => {});
+  return module;
+}
+
 export async function loadBaseDocument(filePath) {
   const resolvedPath = resolveHtmlPath(filePath);
   const html = await fs.promises.readFile(resolvedPath, 'utf8');
@@ -834,18 +944,6 @@ export async function loadBaseDocument(filePath) {
 }
 
 export function setupDomStubs() {
-  const original = {
-    window: globalThis.window,
-    document: globalThis.document,
-    Node: globalThis.Node,
-    customElements: globalThis.customElements,
-    HTMLElement: globalThis.HTMLElement,
-    FormData: globalThis.FormData,
-    CustomEvent: globalThis.CustomEvent,
-    requestAnimationFrame: globalThis.requestAnimationFrame,
-    CSSStyleSheet: globalThis.CSSStyleSheet,
-    fetch: globalThis.fetch
-  };
   const messageListeners = new Map();
   const selection = new FakeSelection();
   const fakeWindow = new FakeWindow(selection, messageListeners);

@@ -10,6 +10,13 @@
   const { restore } = setupDomStubs();
   pfusch('my-widget', {}, () => [html.div('hi')]);
   ```
+- Import browser-facing modules that pull pfusch from the CDN with `import_for_test(modulePath, pfuschPath)`. Paths are resolved relative to the calling test file (fallback to CWD/module path). If `pfuschPath` is omitted, `import_for_test` downloads `https://matthiaskainer.github.io/pfusch/pfusch.js` to a temp file and uses that as a fallback. It rewrites the CDN import to a local file before loading, then deletes the temporary shim file:
+  ```js
+  import { setupDomStubs, import_for_test } from './pfusch-stubs.js';
+
+  setupDomStubs();
+  await import_for_test('../public/components.js', '../../../pfusch.js');
+  ```
 - Load a real HTML fixture into the fake document with `loadBaseDocument('./path/to/index.html')`. This parses the `<body>` and connects custom elements so `children()` works as expected.
 - Mount components with `pfuschTest(tagName, attributes)`. Attributes are set on the element, objects/arrays are stringified for you.
 - Chain `.get(selector)` to keep drilling into the tree (shadow DOMs are traversed automatically). Helpers: `.length`, `.value`, `.checked`, `.textContent`, `.click()`, `.submit()`, `.at(index)`, `.elements` (raw nodes), `.map(cb)` and `await .flush()` to let scheduled renders complete.

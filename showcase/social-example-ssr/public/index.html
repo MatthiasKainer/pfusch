@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pfusch Social</title>
+    <style data-pfusch>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #15202b;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            border-bottom: 1px solid #38444d;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1::before {
+            content: "🐦";
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        textarea {
+            background: #253341;
+            border: 1px solid #38444d;
+            border-radius: 8px;
+            color: #fff;
+            padding: 12px;
+            font-size: 1rem;
+            resize: none;
+            min-height: 80px;
+            font-family: inherit;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #1da1f2;
+        }
+        button[type="submit"] {
+            background: #1da1f2;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            align-self: flex-end;
+        }
+        button[type="submit"]:hover {
+            background: #1a91da;
+        }
+        button[type="submit"]:disabled {
+            background: #38444d;
+            cursor: not-allowed;
+        }
+        .post-card {
+            background: #192734;
+            border: 1px solid #38444d;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .post-author {
+            font-weight: bold;
+        }
+        .post-handle {
+            color: #8899a6;
+            font-weight: normal;
+        }
+        .post-content {
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        .post-actions {
+            display: flex;
+            gap: 24px;
+        }
+        .action-btn {
+            background: none;
+            border: none;
+            color: #8899a6;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .action-btn:hover {
+            background: rgba(29, 161, 242, 0.1);
+            color: #1da1f2;
+        }
+        .hashtag {
+            color: #1da1f2;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .hashtag:hover {
+            text-decoration: underline;
+        }
+        .filter-bar {
+            background: #192734;
+            border: 1px solid #38444d;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .clear-filter {
+            background: transparent;
+            border: 1px solid #1da1f2;
+            color: #1da1f2;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .char-count {
+            text-align: right;
+            font-size: 0.85rem;
+            color: #8899a6;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #38444d;
+            margin: 20px 0;
+        }
+    </style>
+    <script type="module" src="./components.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pfusch Social</h1>
+        </header>
+
+        <!-- Post Form: Works without JS via form action -->
+        <feed-post>
+            <form action="/api/posts/create" method="POST">
+                <textarea 
+                    name="content" 
+                    placeholder="What's happening?" 
+                    maxlength="280"
+                    required
+                ></textarea>
+                <input type="hidden" name="userId" value="1">
+                <button type="submit">Post</button>
+            </form>
+        </feed-post>
+
+        <hr>
+
+        <!-- Feed List: Fetches posts, JS enhances interactions -->
+        <feed-list></feed-list>
+    </div>
+</body>
+</html>
