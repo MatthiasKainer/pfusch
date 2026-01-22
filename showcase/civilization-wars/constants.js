@@ -57,10 +57,13 @@ export const BATTLE_DEX_WEIGHT = 0.25;       // Dexterity contribution
 export const BATTLE_WIS_WEIGHT = 0.15;       // Wisdom contribution
 export const BATTLE_INT_WEIGHT = 0.10;       // Intelligence contribution
 export const BATTLE_DICE_RANGE = 6;          // d6 randomness factor
+export const EARLY_STR_BOOST_WEIGHT = 0.15;  // Extra STR weight for young cells
+export const EARLY_STR_BOOST_TURNS = 30;     // Turns before the STR boost fades out
 export const INT_BATTLE_BOOST_DIVISOR = 40000; // Civ lifetime INT scaling (no generation multiplier)
 export const WISDOM_TEAMWORK_MULTIPLIER = 0.7; // Teamwork power multiplier at max wisdom
 export const CHARISMA_CONVERT_BASE_CHANCE = 0.05; // Base chance to convert a neighbor
 export const CHARISMA_CONVERT_BONUS = 0.25;       // Bonus chance at max charisma
+export const CHARISMA_CONVERT_DEX_RESIST = 0.2;   // Max conversion reduction from high DEX
 
 // Survival constants (Conway's rules modified - more lenient)
 export const SURVIVE_MIN_NEIGHBORS = 1;      // Die of loneliness below this (was 2)

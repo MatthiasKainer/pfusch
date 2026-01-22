@@ -19,10 +19,13 @@ import {
     BATTLE_WIS_WEIGHT,
     BATTLE_INT_WEIGHT,
     BATTLE_DICE_RANGE,
+    EARLY_STR_BOOST_WEIGHT,
+    EARLY_STR_BOOST_TURNS,
     INT_BATTLE_BOOST_DIVISOR,
     WISDOM_TEAMWORK_MULTIPLIER,
     CHARISMA_CONVERT_BASE_CHANCE,
     CHARISMA_CONVERT_BONUS,
+    CHARISMA_CONVERT_DEX_RESIST,
     SURVIVE_MIN_NEIGHBORS,
     SURVIVE_MAX_NEIGHBORS,
     AGE_DEATH_THRESHOLD,
@@ -115,12 +118,15 @@ class Cell {
      * Calculate combat power with weighted stats and randomness
      */
     getCombatPower() {
+        const earlyStrFactor = Math.max(0, 1 - (this.age / EARLY_STR_BOOST_TURNS));
+        const earlyStrBoost = this.str * EARLY_STR_BOOST_WEIGHT * earlyStrFactor;
         const basePower = 
             this.str * BATTLE_STR_WEIGHT +
             this.con * BATTLE_CON_WEIGHT +
             this.dex * BATTLE_DEX_WEIGHT +
             this.wis * BATTLE_WIS_WEIGHT +
-            this.int * BATTLE_INT_WEIGHT;
+            this.int * BATTLE_INT_WEIGHT +
+            earlyStrBoost;
         
         // Add d6 randomness (luck factor)
         const luck = Math.floor(Math.random() * BATTLE_DICE_RANGE) + 1;
@@ -812,9 +818,11 @@ export class GameEngine {
                     const key = `${nx},${ny}`;
                     if (targeted.has(key)) continue;
                     const targetChr = this.players[target.owner]?.avgStats?.chr || 0;
+                    const targetDex = this.players[target.owner]?.avgStats?.dex || 0;
                     const advantage = (avgChr - targetChr) / 18;
+                    const dexResist = (targetDex / 18) * CHARISMA_CONVERT_DEX_RESIST;
                     const chance = clamp(
-                        CHARISMA_CONVERT_BASE_CHANCE + advantage * CHARISMA_CONVERT_BONUS,
+                        CHARISMA_CONVERT_BASE_CHANCE + advantage * CHARISMA_CONVERT_BONUS - dexResist,
                         0,
                         0.6
                     );

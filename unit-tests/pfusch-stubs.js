@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 class FakeClassList {
   constructor() {
     this._set = new Set();
@@ -35,6 +39,18 @@ class FakeAttributes extends Map {
     return Array.from(super.entries()).map(([name, value]) => ({ name, value }))[Symbol.iterator]();
   }
 }
+
+let suspendConnect = false;
+const connectTree = (node) => {
+  if (suspendConnect || !node) return;
+  const walk = (current) => {
+    if (!current) return;
+    if (typeof current.connectedCallback === 'function') current.connectedCallback();
+    if (current.childNodes) current.childNodes.forEach(child => walk(child));
+    if (current.shadowRoot?.childNodes) current.shadowRoot.childNodes.forEach(child => walk(child));
+  };
+  walk(node);
+};
 
 const matchSelector = (el, selector) => {
   if (!selector || !el) return false;
@@ -101,6 +117,7 @@ class FakeElement {
     this._checked = false;
     this._name = '';
     this._type = '';
+    this._action = '';
   }
   get className() {
     return this.classList.toString();
@@ -111,7 +128,7 @@ class FakeElement {
     this.classList.add(...names);
   }
   attachInternals() {
-    return { setFormValue() {} };
+    return { setFormValue() { } };
   }
   attachShadow() {
     this.shadowRoot = new FakeShadowRoot(this.ownerDocument, this);
@@ -131,6 +148,7 @@ class FakeElement {
       node.parentNode = this;
       if (!node.ownerDocument && this.ownerDocument) node.ownerDocument = this.ownerDocument;
     }
+    connectTree(node);
     return node;
   }
   insertBefore(newNode, referenceNode) {
@@ -149,6 +167,7 @@ class FakeElement {
       newNode.parentNode = this;
       if (!newNode.ownerDocument && this.ownerDocument) newNode.ownerDocument = this.ownerDocument;
     }
+    connectTree(newNode);
     return newNode;
   }
   removeChild(node) {
@@ -211,6 +230,9 @@ class FakeElement {
     if (name === 'type') {
       this.type = String(value ?? '');
     }
+    if (name === 'action') {
+      this.action = String(value ?? '');
+    }
     if (typeof this.attributeChangedCallback === 'function' && prev !== stringValue) {
       this.attributeChangedCallback(name, prev, stringValue);
     }
@@ -240,7 +262,7 @@ class FakeElement {
   dispatchEvent(event) {
     const evt = typeof event === 'string' ? { type: event } : (event || {});
     evt.preventDefault ??= () => { evt.defaultPrevented = true; };
-    evt.stopPropagation ??= () => {};
+    evt.stopPropagation ??= () => { evt._stopped = true; };
     const handlers = this._listeners.get(evt?.type) || [];
     try {
       if (evt && evt.target === undefined) evt.target = this;
@@ -249,6 +271,13 @@ class FakeElement {
       /* ignore read-only target */
     }
     handlers.forEach(handler => handler.call(this, evt));
+    if (evt.bubbles && !evt._stopped) {
+      if (this.parentNode?.dispatchEvent) {
+        return this.parentNode.dispatchEvent(evt);
+      }
+      const win = this.ownerDocument?.defaultView || globalThis.window;
+      if (win?.dispatchEvent) return win.dispatchEvent(evt);
+    }
     return true;
   }
   contains(node) {
@@ -317,6 +346,13 @@ class FakeElement {
   set type(val) {
     this._type = String(val ?? '');
     this.attributes.set('type', this._type);
+  }
+  get action() {
+    return this._action || this.getAttribute('action') || '';
+  }
+  set action(val) {
+    this._action = String(val ?? '');
+    this.attributes.set('action', this._action);
   }
   getRootNode() {
     return this.ownerDocument || this;
@@ -491,6 +527,9 @@ class FakeFormData {
   entries() {
     return this._entries[Symbol.iterator]();
   }
+  [Symbol.iterator]() {
+    return this.entries();
+  }
 }
 
 class FakeDocument {
@@ -513,9 +552,6 @@ class FakeDocument {
       element = new FakeElement(name, this);
     }
     element.ownerDocument = this;
-    if (typeof element.connectedCallback === 'function') {
-      element.connectedCallback();
-    }
     return element;
   }
   createTextNode(text) {
@@ -558,6 +594,16 @@ class FakeWindow {
   removeEventListener(type, handler) {
     this._listeners.get(type)?.delete(handler);
   }
+  dispatchEvent(event) {
+    const evt = typeof event === 'string' ? { type: event } : (event || {});
+    evt.preventDefault ??= () => { evt.defaultPrevented = true; };
+    evt.stopPropagation ??= () => { evt._stopped = true; };
+    const handlers = this._listeners.get(evt?.type) || new Set();
+    if (evt && evt.target === undefined) evt.target = this;
+    evt.currentTarget = this;
+    handlers.forEach(handler => handler.call(this, evt));
+    return true;
+  }
   postMessage(data) {
     const handlers = this._listeners.get('message') || new Set();
     handlers.forEach(handler => handler({ data }));
@@ -566,6 +612,109 @@ class FakeWindow {
     return this._selection;
   }
 }
+
+const voidTags = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'param', 'source', 'track', 'wbr'
+]);
+
+const parseAttributes = (raw) => {
+  const attrs = {};
+  if (!raw) return attrs;
+  const regex = /([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  let match;
+  while ((match = regex.exec(raw))) {
+    const name = match[1];
+    const value = match[2] ?? match[3] ?? match[4] ?? '';
+    attrs[name] = value;
+  }
+  return attrs;
+};
+
+const extractBodyHtml = (html) => {
+  const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return match ? match[1] : html;
+};
+
+const findCallerFile = () => {
+  const stack = new Error().stack?.split('\n').slice(2) || [];
+  for (const line of stack) {
+    if (line.includes('node:internal') || line.includes('node:fs')) continue;
+    if (line.includes('pfusch-stubs.js')) continue;
+    const urlMatch = line.match(/\((file:\/\/[^)]+)\)/) || line.match(/at (file:\/\/\S+)/);
+    if (urlMatch) return fileURLToPath(urlMatch[1]);
+    const pathMatch = line.match(/\((\/[^)]+):\d+:\d+\)/) || line.match(/at (\/\S+):\d+:\d+/);
+    if (pathMatch) return pathMatch[1];
+  }
+  return null;
+};
+
+const resolveHtmlPath = (filePath) => {
+  if (filePath instanceof URL) return fileURLToPath(filePath);
+  if (typeof filePath !== 'string') {
+    throw new Error('loadBaseDocument expects a file path string or URL');
+  }
+  if (path.isAbsolute(filePath)) return filePath;
+  const caller = findCallerFile();
+  if (caller) {
+    const callerPath = path.resolve(path.dirname(caller), filePath);
+    if (fs.existsSync(callerPath)) return callerPath;
+  }
+  const cwdPath = path.resolve(process.cwd(), filePath);
+  if (fs.existsSync(cwdPath)) return cwdPath;
+  return cwdPath;
+};
+
+const parseHtmlInto = (html, document, parent) => {
+  const tokens = html.match(/<!--[\s\S]*?-->|<\/?[a-zA-Z][^>]*>|[^<]+/g) || [];
+  const stack = [parent];
+  tokens.forEach(token => {
+    if (!token) return;
+    if (token.startsWith('<!--')) return;
+    if (token.startsWith('</')) {
+      const tag = token.slice(2, -1).trim().toLowerCase();
+      for (let i = stack.length - 1; i > 0; i -= 1) {
+        if (stack[i]?.tagName?.toLowerCase() === tag) {
+          stack.length = i;
+          break;
+        }
+      }
+      return;
+    }
+    if (token.startsWith('<')) {
+      const selfClosing = token.endsWith('/>');
+      const inner = token.slice(1, token.length - (selfClosing ? 2 : 1)).trim();
+      if (!inner) return;
+      const [tagName] = inner.split(/\s+/);
+      const attrsRaw = inner.slice(tagName.length).trim();
+      const el = document.createElement(tagName);
+      const attrs = parseAttributes(attrsRaw);
+      Object.entries(attrs).forEach(([name, value]) => {
+        el.setAttribute(name, value);
+      });
+      stack[stack.length - 1].appendChild(el);
+      if (!selfClosing && !voidTags.has(tagName.toLowerCase())) {
+        stack.push(el);
+      }
+      return;
+    }
+    if (token.trim().length === 0) return;
+    stack[stack.length - 1].appendChild(document.createTextNode(token));
+  });
+};
+
+const refreshPfuschLightDom = (node) => {
+  if (!node) return;
+  if (node.lightDOMChildren !== undefined && node._lightById !== undefined) {
+    node.lightDOMChildren = Array.from(node.children || []);
+    const withIds = [
+      ...node.lightDOMChildren,
+      ...node.lightDOMChildren.flatMap(child => Array.from(child.querySelectorAll?.('[id]') || []))
+    ].filter(child => child.id);
+    node._lightById = new Map(withIds.map(child => [child.id, child]));
+  }
+  if (node.childNodes) node.childNodes.forEach(child => refreshPfuschLightDom(child));
+};
 
 class PfuschNodeCollection {
   constructor(nodes = [], host = null) {
@@ -659,6 +808,31 @@ export function pfuschTest(tagName, attributes = {}) {
   return new PfuschNodeCollection([element.shadowRoot || element], element);
 }
 
+export async function loadBaseDocument(filePath) {
+  const resolvedPath = resolveHtmlPath(filePath);
+  const html = await fs.promises.readFile(resolvedPath, 'utf8');
+  const bodyHtml = extractBodyHtml(html);
+  const doc = globalThis.document;
+  if (!doc?.body) {
+    throw new Error('loadBaseDocument requires setupDomStubs() to be called first');
+  }
+  if (Array.isArray(doc.body._childNodes)) {
+    doc.body._childNodes.forEach(child => {
+      if (child?.parentNode === doc.body) child.parentNode = null;
+    });
+    doc.body._childNodes = [];
+  }
+  suspendConnect = true;
+  try {
+    parseHtmlInto(bodyHtml, doc, doc.body);
+  } finally {
+    suspendConnect = false;
+  }
+  refreshPfuschLightDom(doc.body);
+  connectTree(doc.body);
+  return new PfuschNodeCollection([doc.body]);
+}
+
 export function setupDomStubs() {
   const original = {
     window: globalThis.window,
@@ -669,20 +843,56 @@ export function setupDomStubs() {
     FormData: globalThis.FormData,
     CustomEvent: globalThis.CustomEvent,
     requestAnimationFrame: globalThis.requestAnimationFrame,
-    CSSStyleSheet: globalThis.CSSStyleSheet
+    CSSStyleSheet: globalThis.CSSStyleSheet,
+    fetch: globalThis.fetch
   };
   const messageListeners = new Map();
   const selection = new FakeSelection();
   const fakeWindow = new FakeWindow(selection, messageListeners);
   const fakeDocument = new FakeDocument(selection, messageListeners);
+  function createSimpleFetchMock({ defaultPayload = { structuredContent: null } } = {}) {
+    const calls = [];
+    const routes = []; // [{ key, payload }], newest wins
+
+    async function fetchMock(url, init) {
+      const urlStr = String(url);
+      calls.push({ url: urlStr, init, timestamp: Date.now() });
+
+      const hit = routes.find((r) => urlStr.includes(r.key));
+      const payload = hit ? hit.payload : defaultPayload;
+
+      return {
+        ok: true,
+        json: async () => payload,
+      };
+    }
+
+    fetchMock.addRoute = (key, payload) => {
+      routes.unshift({ key, payload });
+    };
+
+    fetchMock.resetRoutes = () => {
+      routes.length = 0;
+    };
+
+    fetchMock.getCalls = () => [...calls];
+
+    fetchMock.resetCalls = () => {
+      calls.length = 0;
+    };
+
+    return fetchMock;
+  }
+  globalThis.fetch = createSimpleFetchMock();
   globalThis.window = fakeWindow;
   globalThis.document = fakeDocument;
   fakeWindow.document = fakeDocument;
+  fakeDocument.defaultView = fakeWindow;
   globalThis.Node = { TEXT_NODE: 3, ELEMENT_NODE: 1 };
   globalThis.CSSStyleSheet = class {
-    replaceSync() {}
+    replaceSync() { }
   };
-  globalThis.HTMLElement = FakeHTMLElement;
+  globalThis.HTMLElement = FakeElement;
   globalThis.customElements = {
     _registry: new Map(),
     define(name, ctor) {
@@ -709,6 +919,7 @@ export function setupDomStubs() {
       globalThis.FormData = original.FormData || globalThis.FormData;
       globalThis.CustomEvent = original.CustomEvent || globalThis.CustomEvent;
       globalThis.requestAnimationFrame = original.requestAnimationFrame || globalThis.requestAnimationFrame;
+      globalThis.fetch = original.fetch || globalThis.fetch;
     }
   };
 }

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Social Pfusch Test</title>
+    <script type="module" src="./social.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Social Pfusch</h1>
+
+        <!-- Progressive Enhancement: This form works without JS! -->
+        <post-form>
+            <form action="https://jsonplaceholder.typicode.com/posts" method="POST">
+                <input type="text" name="title" placeholder="What's on your mind?" required>
+                <textarea name="body" placeholder="Tell us more..." required></textarea>
+                <!-- Hardcoded userId for the example -->
+                <input type="hidden" name="userId" value="1">
+                <button type="submit">Post to Feed</button>
+            </form>
+        </post-form>
+
+        <hr>
+
+        <!-- Our interactive feed -->
+        <post-feed></post-feed>
+    </div>
+</body>
+
+</html>
