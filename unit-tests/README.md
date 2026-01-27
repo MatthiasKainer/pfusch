@@ -10,12 +10,21 @@
   const { restore } = setupDomStubs();
   pfusch('my-widget', {}, () => [html.div('hi')]);
   ```
-- Import browser-facing modules that pull pfusch from the CDN with `import_for_test(modulePath, pfuschPath)`. Paths are resolved relative to the calling test file (fallback to CWD/module path). If `pfuschPath` is omitted, `import_for_test` downloads `https://matthiaskainer.github.io/pfusch/pfusch.js` to a temp file and uses that as a fallback. It rewrites the CDN import to a local file before loading, then deletes the temporary shim file:
+- Import browser-facing modules that pull pfusch from the CDN with `import_for_test(modulePath, pfuschPath)`. Paths are resolved relative to the calling test file (fallback to CWD/module path). If `pfuschPath` is omitted, `import_for_test` downloads `https://matthiaskainer.github.io/pfusch/pfusch.js` to a temp file and uses that as a fallback. It rewrites the CDN import to a local file before loading, then deletes the temporary shim file. You can also pass an options object `{ pfuschPath, replacements }` or a third `replacements` argument. Each replacement is `{ pattern, replacement }` and is applied to the module source before import (handy for swapping relative imports to mocks in tests):
   ```js
   import { setupDomStubs, import_for_test } from './pfusch-stubs.js';
 
   setupDomStubs();
   await import_for_test('../public/components.js', '../../../pfusch.js');
+  ```
+  ```js
+  await import_for_test('../molecules/cards.js', {
+    replacements: [
+      { pattern: /(['"])\.\/i18\.js\1/g, replacement: '$1./tests/mock-i18n.js$1' },
+      { pattern: /(['"])\.\.\/inxm-setup\.js\1/g, replacement: '$1../tests/mock-setup.js$1' },
+      { pattern: /(['"])\.\/inxm-setup\.js\1/g, replacement: '$1./tests/mock-setup.js$1' }
+    ]
+  });
   ```
 - Load a real HTML fixture into the fake document with `loadBaseDocument('./path/to/index.html')`. This parses the `<body>` and connects custom elements so `children()` works as expected.
 - Mount components with `pfuschTest(tagName, attributes)`. Attributes are set on the element, objects/arrays are stringified for you.

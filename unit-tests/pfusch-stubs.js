@@ -234,6 +234,7 @@ class FakeElement {
     this.attributes.set(name, stringValue);
     if (name === 'id') this.id = value;
     if (name === 'class') {
+      this.classList = new FakeClassList();
       const classes = String(value).split(/\s+/).filter(Boolean);
       classes.forEach(cls => this.classList.add(cls));
     }
@@ -253,6 +254,7 @@ class FakeElement {
       this.action = String(value ?? '');
     }
     if (typeof this.attributeChangedCallback === 'function' && prev !== stringValue) {
+      // console.log(`STUB: Attribute ${name} changed from ${prev} to ${stringValue} on ${this.tagName}`);
       this.attributeChangedCallback(name, prev, stringValue);
     }
   }
@@ -263,6 +265,7 @@ class FakeElement {
     return this.attributes.has(name);
   }
   removeAttribute(name) {
+    const prev = this.attributes.has(name) ? this.attributes.get(name) : null;
     this.attributes.delete(name);
     if (name === 'id') this.id = undefined;
     if (name === 'class') this.classList = new FakeClassList();
@@ -270,6 +273,10 @@ class FakeElement {
     if (name === 'checked') this._checked = false;
     if (name === 'name') this._name = '';
     if (name === 'type') this._type = '';
+    
+    if (typeof this.attributeChangedCallback === 'function' && prev !== null) {
+      this.attributeChangedCallback(name, prev, null);
+    }
   }
   addEventListener(type, handler) {
     if (!this._listeners.has(type)) this._listeners.set(type, new Set());
@@ -282,7 +289,7 @@ class FakeElement {
     const evt = typeof event === 'string' ? { type: event } : (event || {});
     evt.preventDefault ??= () => { evt.defaultPrevented = true; };
     evt.stopPropagation ??= () => { evt._stopped = true; };
-    const handlers = this._listeners.get(evt?.type) || [];
+    const handlers = Array.from(this._listeners.get(evt?.type) || []);
     try {
       if (evt && evt.target === undefined) evt.target = this;
       evt.currentTarget = this;
@@ -301,6 +308,13 @@ class FakeElement {
   }
   contains(node) {
     return this === node || this.childNodes.some(child => child === node || (child.contains && child.contains(node)));
+  }
+  getRootNode(options) {
+    let current = this;
+    while (current.parentNode) {
+      current = current.parentNode;
+    }
+    return current;
   }
   closest(selector) {
     if (!selector) return null;
@@ -888,7 +902,7 @@ export function pfuschTest(tagName, attributes = {}) {
   return new PfuschNodeCollection([element.shadowRoot || element], element);
 }
 
-export async function import_for_test(modulePath, pfuschPath) {
+export async function import_for_test(modulePath, pfuschPathOrOptions = null, extraReplacements = []) {
   const caller = findCallerFile();
   const moduleUrl = resolveFileUrl(modulePath, caller);
   if (moduleUrl.protocol !== 'file:') {
@@ -897,6 +911,14 @@ export async function import_for_test(modulePath, pfuschPath) {
   const moduleFsPath = fileURLToPath(moduleUrl);
   if (!fs.existsSync(moduleFsPath)) {
     throw new Error(`import_for_test could not find module at ${moduleFsPath}`);
+  }
+
+  let pfuschPath = pfuschPathOrOptions;
+  let replacements = extraReplacements;
+
+  if (pfuschPathOrOptions && typeof pfuschPathOrOptions === 'object') {
+     pfuschPath = pfuschPathOrOptions.pfuschPath;
+     replacements = pfuschPathOrOptions.replacements || replacements;
   }
 
   let pfuschUrl;
@@ -916,14 +938,18 @@ export async function import_for_test(modulePath, pfuschPath) {
     }
   }
 
-  const cacheKey = `${moduleUrl.href}::${pfuschUrl.href}`;
+  const cacheKey = `${moduleUrl.href}::${pfuschUrl.href}::${JSON.stringify(replacements)}`;
   const cached = pfuschImportCache.get(cacheKey);
   if (cached) return import(cached);
 
   const source = await fs.promises.readFile(moduleFsPath, 'utf8');
-  const I18N_RE = /(['"])\.\/i18\.js\1/g;
-  const replaced = source.replace(PFUSCH_CDN_RE, `$1${pfuschUrl.href}$1`)
-                         .replace(I18N_RE, `$1./tests/mock-i18n.js$1`);
+  let replaced = source.replace(PFUSCH_CDN_RE, `$1${pfuschUrl.href}$1`);
+
+  if (replacements && replacements.length > 0) {
+      for (const r of replacements) {
+          replaced = replaced.replace(r.pattern, r.replacement);
+      }
+  }
 
   if (replaced === source) {
     if (source.match(PFUSCH_CDN_RE)) {
