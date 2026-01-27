@@ -23,6 +23,7 @@ To keep components loosely coupled, avoid direct references.
 *   **Downwards**: Use Attributes/Props.
 *   **Upwards**: Use `trigger("eventName", data)`.
 *   **The Prefix Convention**: `trigger("saved")` inside `<user-profile>` becomes a global `window` event named `user-profile.saved`. Other components should listen to this global event, or alternatively the window message in their `script()` block.
+*  **Event attribute names**: Events are standard DOM events, so you can listen to them with `addEventListener` or `eventName` attributes in HTML. Do NOT use `onEventName` attributes, always without the `on` prefix.
 
 ## 4. Lifecycle & Side Effects
 The `script(function() { ... })` helper is your primary tool for logic.

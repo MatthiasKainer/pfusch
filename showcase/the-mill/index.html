@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Mill - Medieval Strategy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style id="pfusch-style">
+    :root {
+      --parchment: #f4e4c1;
+      --parchment-dark: #d4c4a1;
+      --ink: #2a1810;
+      --ink-light: #4a3828;
+      --gold: #c9a227;
+      --gold-bright: #e8c547;
+      --blood: #8b1a1a;
+      --forest: #2d4a2d;
+      --stone: #6b6b6b;
+      --water: #3a5a7c;
+      --fog: rgba(40, 40, 50, 0.7);
+      --player-blue: #2563eb;
+      --player-red: #dc2626;
+      --player-green: #16a34a;
+      --neutral: #737373;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Crimson Text', Georgia, serif;
+      background: var(--ink);
+      color: var(--parchment);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Cinzel', 'Times New Roman', serif;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    
+    button {
+      font-family: 'Cinzel', serif;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+    
+    button:hover {
+      transform: translateY(-1px);
+    }
+    
+    button:active {
+      transform: translateY(1px);
+    }
+    
+    .icon {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: middle;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+  </style>
+</head>
+<body>
+  <game-app></game-app>
+  
+  <script type="module" src="game.js"></script>
+</body>
+</html>

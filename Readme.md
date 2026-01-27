@@ -37,7 +37,7 @@ Pfusch is perfect for quick prototypes, internal tools, interactive documentatio
     
     pfusch("live-counter", { count: 0 }, (state) => [
       html.div(
-        html.p`Count: ${state.count}`,
+        html.p(`Count: ${state.count}`),
         html.button({ click: () => state.count++ }, "Increment")
       )
     ]);

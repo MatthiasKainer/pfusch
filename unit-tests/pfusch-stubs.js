@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { match } from 'node:assert';
 
 const original = {
   window: globalThis.window,
@@ -14,7 +15,11 @@ const original = {
   CustomEvent: globalThis.CustomEvent,
   requestAnimationFrame: globalThis.requestAnimationFrame,
   CSSStyleSheet: globalThis.CSSStyleSheet,
-  fetch: globalThis.fetch
+  fetch: globalThis.fetch,
+  localStorage: globalThis.localStorage,
+  sessionStorage: globalThis.sessionStorage,
+  KeyboardEvent: globalThis.KeyboardEvent,
+  matchMedia: globalThis.matchMedia,
 };
 class FakeClassList {
   constructor() {
@@ -627,6 +632,24 @@ class FakeWindow {
   }
 }
 
+class FakeStorage {
+  constructor() {
+    this._store = new Map();
+  }
+  getItem(key) {
+    return this._store.has(key) ? this._store.get(key) : null;
+  }
+  setItem(key, value) {
+    this._store.set(key, String(value));
+  }
+  removeItem(key) {
+    this._store.delete(key);
+  }
+  clear() {
+    this._store.clear();
+  }
+}
+
 const voidTags = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
   'link', 'meta', 'param', 'source', 'track', 'wbr'
@@ -664,7 +687,7 @@ const findCallerFile = () => {
 };
 
 const PFUSCH_REMOTE_URL = new URL('https://matthiaskainer.github.io/pfusch/pfusch.js');
-const PFUSCH_CDN_RE = /(['"])https:\/\/matthiaskainer\.github\.io\/pfusch\/pfusch(?:\.min)?\.js\1/g;
+const PFUSCH_CDN_RE = /(['"])(?:https:\/\/matthiaskainer\.github\.io\/pfusch\/pfusch(?:\.min)?\.js|\.\/pfusch\.js)\1/g;
 const pfuschImportCache = new Map();
 const pfuschRemoteHash = createHash('sha1').update(PFUSCH_REMOTE_URL.href).digest('hex').slice(0, 8);
 const pfuschRemotePath = path.join(os.tmpdir(), `pfusch.remote.${pfuschRemoteHash}.js`);
@@ -898,9 +921,15 @@ export async function import_for_test(modulePath, pfuschPath) {
   if (cached) return import(cached);
 
   const source = await fs.promises.readFile(moduleFsPath, 'utf8');
-  const replaced = source.replace(PFUSCH_CDN_RE, `$1${pfuschUrl.href}$1`);
+  const I18N_RE = /(['"])\.\/i18\.js\1/g;
+  const replaced = source.replace(PFUSCH_CDN_RE, `$1${pfuschUrl.href}$1`)
+                         .replace(I18N_RE, `$1./tests/mock-i18n.js$1`);
+
   if (replaced === source) {
-    throw new Error(`import_for_test did not find a pfusch CDN import in ${moduleFsPath}`);
+    if (source.match(PFUSCH_CDN_RE)) {
+         throw new Error(`import_for_test regex failed to replace existing pfusch import in ${moduleFsPath}`);
+    }
+     // Else maybe it didn't have it (but we expect it usually)
   }
 
   const ext = path.extname(moduleFsPath) || '.js';
@@ -925,6 +954,29 @@ export async function loadBaseDocument(filePath) {
   const doc = globalThis.document;
   if (!doc?.body) {
     throw new Error('loadBaseDocument requires setupDomStubs() to be called first');
+  }
+  if (Array.isArray(doc.body._childNodes)) {
+    doc.body._childNodes.forEach(child => {
+      if (child?.parentNode === doc.body) child.parentNode = null;
+    });
+    doc.body._childNodes = [];
+  }
+  suspendConnect = true;
+  try {
+    parseHtmlInto(bodyHtml, doc, doc.body);
+  } finally {
+    suspendConnect = false;
+  }
+  refreshPfuschLightDom(doc.body);
+  connectTree(doc.body);
+  return new PfuschNodeCollection([doc.body]);
+}
+
+export async function loadDocumentFromString(html) {
+  const bodyHtml = extractBodyHtml(html);
+  const doc = globalThis.document;
+  if (!doc?.body) {
+    throw new Error('loadDocumentFromString requires setupDomStubs() to be called first');
   }
   if (Array.isArray(doc.body._childNodes)) {
     doc.body._childNodes.forEach(child => {
@@ -991,6 +1043,25 @@ export function setupDomStubs() {
     replaceSync() { }
   };
   globalThis.HTMLElement = FakeElement;
+  globalThis.KeyboardEvent = class KeyboardEvent {
+        constructor(type, options) {
+            this.type = type;
+            this.key = options?.key || '';
+            this.ctrlKey = options?.ctrlKey || false;
+            this.metaKey = options?.metaKey || false;
+            this.bubbles = options?.bubbles || false;
+            this.cancelable = options?.cancelable || false;
+            this._preventDefault = false;
+        }
+        preventDefault() { this._preventDefault = true; }
+    };
+  globalThis.matchMedia = () => ({
+      matches: false,
+      addListener: () => { },
+      removeListener: () => { },
+  });
+  globalThis.localStorage = new FakeStorage();
+  globalThis.sessionStorage = new FakeStorage();
   globalThis.customElements = {
     _registry: new Map(),
     define(name, ctor) {
@@ -1018,6 +1089,10 @@ export function setupDomStubs() {
       globalThis.CustomEvent = original.CustomEvent || globalThis.CustomEvent;
       globalThis.requestAnimationFrame = original.requestAnimationFrame || globalThis.requestAnimationFrame;
       globalThis.fetch = original.fetch || globalThis.fetch;
+      globalThis.KeyboardEvent = original.KeyboardEvent || globalThis.KeyboardEvent;
+      globalThis.localStorage = original.localStorage || globalThis.localStorage;
+      globalThis.sessionStorage = original.sessionStorage || globalThis.sessionStorage;
+      globalThis.matchMedia = original.matchMedia || globalThis.matchMedia;
     }
   };
 }
