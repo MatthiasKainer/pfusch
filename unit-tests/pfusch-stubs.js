@@ -20,6 +20,8 @@ const original = {
   sessionStorage: globalThis.sessionStorage,
   KeyboardEvent: globalThis.KeyboardEvent,
   matchMedia: globalThis.matchMedia,
+  MutationObserver: globalThis.MutationObserver,
+  triggerMutation: globalThis.triggerMutation,
 };
 class FakeClassList {
   constructor() {
@@ -459,6 +461,66 @@ class FakeHTMLElement extends FakeElement {
   }
 }
 
+// --- MutationObserver Mock Support ---
+let _mutationObservers = [];
+
+
+class FakeMutationObserver {
+  constructor(callback) {
+    this.callback = callback;
+    this._records = [];
+    this._observed = [];
+    this._active = false;
+    _mutationObservers.push(this);
+  }
+  observe(target, options) {
+    this._observed.push({ target, options: options || {} });
+    this._active = true;
+  }
+  disconnect() {
+    this._active = false;
+    this._observed = [];
+  }
+  takeRecords() {
+    const records = this._records.slice();
+    this._records = [];
+    return records;
+  }
+  _enqueue(record) {
+    if (this._active) {
+      this._records.push(record);
+    }
+  }
+}
+
+function isDescendantOrSelf(parent, node) {
+  if (!parent || !node) return false;
+  if (parent === node) return true;
+  let current = node.parentNode;
+  while (current) {
+    if (current === parent) return true;
+    current = current.parentNode;
+  }
+  return false;
+}
+
+function triggerMutation(target, record = null) {
+  // record: { type, target, addedNodes, removedNodes, attributeName, oldValue, ... }
+  _mutationObservers.forEach(observer => {
+    if (!observer._active) return;
+    for (const { target: observedTarget, options } of observer._observed) {
+      if (observedTarget === target) {
+        observer.callback([record || { type: 'childList', target, addedNodes: [], removedNodes: [] }], observer);
+        return;
+      }
+      if (options && options.subtree && isDescendantOrSelf(observedTarget, target)) {
+        observer.callback([record || { type: 'childList', target, addedNodes: [], removedNodes: [] }], observer);
+        return;
+      }
+    }
+  });
+}
+
 class FakeCustomEvent {
   constructor(type, options = {}) {
     this.type = type;
@@ -570,6 +632,7 @@ class FakeDocument {
     this.activeElement = null;
     this._selection = selection;
     this._messageListeners = messageListeners;
+    this._listeners = new Map();
     this.body = new FakeElement('body', this);
     this.documentElement = new FakeElement('html', this);
   }
@@ -610,6 +673,27 @@ class FakeDocument {
   }
   queryCommandSupported() {
     return false;
+  }
+  addEventListener(type, handler) {
+    if (!this._listeners.has(type)) this._listeners.set(type, new Set());
+    this._listeners.get(type).add(handler);
+  }
+  removeEventListener(type, handler) {
+    this._listeners.get(type)?.delete(handler);
+  }
+  dispatchEvent(event) {
+    const evt = typeof event === 'string' ? { type: event } : (event || {});
+    evt.preventDefault ??= () => { evt.defaultPrevented = true; };
+    evt.stopPropagation ??= () => { evt._stopped = true; };
+    const handlers = this._listeners.get(evt?.type) || new Set();
+    if (evt && evt.target === undefined) evt.target = this;
+    evt.currentTarget = this;
+    handlers.forEach(handler => handler.call(this, evt));
+    if (evt.bubbles && !evt._stopped) {
+      const win = this.defaultView || globalThis.window;
+      if (win?.dispatchEvent) return win.dispatchEvent(evt);
+    }
+    return true;
   }
 }
 
@@ -1100,6 +1184,8 @@ export function setupDomStubs() {
   globalThis.FormData = FakeFormData;
   globalThis.CustomEvent = FakeCustomEvent;
   globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.MutationObserver = FakeMutationObserver;
+  globalThis.triggerMutation = triggerMutation;
   return {
     window: fakeWindow,
     document: fakeDocument,
@@ -1119,6 +1205,8 @@ export function setupDomStubs() {
       globalThis.localStorage = original.localStorage || globalThis.localStorage;
       globalThis.sessionStorage = original.sessionStorage || globalThis.sessionStorage;
       globalThis.matchMedia = original.matchMedia || globalThis.matchMedia;
+      globalThis.MutationObserver = original.MutationObserver || globalThis.MutationObserver;
+      globalThis.triggerMutation = undefined;
     }
   };
 }
