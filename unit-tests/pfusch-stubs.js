@@ -701,7 +701,7 @@ class FakeWindow {
   constructor(selection, messageListeners) {
     this._selection = selection;
     this._listeners = messageListeners || new Map();
-    this.location = { origin: 'http://localhost' };
+    this.location = { origin: 'http://localhost', hostname: 'localhost' };
     this.document = null;
   }
   addEventListener(type, handler) {
@@ -1145,6 +1145,7 @@ export function setupDomStubs() {
   }
   globalThis.fetch = createSimpleFetchMock();
   globalThis.window = fakeWindow;
+  globalThis.location = fakeWindow.location;
   globalThis.document = fakeDocument;
   fakeWindow.document = fakeDocument;
   fakeDocument.defaultView = fakeWindow;
