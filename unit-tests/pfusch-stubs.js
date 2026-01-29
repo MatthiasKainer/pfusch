@@ -533,6 +533,12 @@ class FakeCustomEvent {
   preventDefault() {
     this.defaultPrevented = true;
   }
+  set currentTarget(value) {
+    this.target = value;
+  }
+  get currentTarget() {
+    return this.target;
+  }
 }
 
 class FakeRange {
@@ -1053,7 +1059,9 @@ export async function import_for_test(modulePath, pfuschPathOrOptions = null, ex
   const tempUrl = pathToFileURL(tempPath).href;
   const module = await import(tempUrl);
   pfuschImportCache.set(cacheKey, tempUrl);
-  await fs.promises.unlink(tempPath).catch(() => {});
+  setTimeout(() => {
+    fs.promises.unlink(tempPath).catch(() => {});
+  }, 100);
   return module;
 }
 
