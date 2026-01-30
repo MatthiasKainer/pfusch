@@ -149,7 +149,26 @@ class FakeElement {
     this.classList.add(...names);
   }
   attachInternals() {
-    return { setFormValue() { } };
+    if (!this._internals) {
+      this._internals = {
+        _element: this,
+        setFormValue(v) {},
+        setValidity(flags, message) {
+           this.flags = flags || {};
+           this.validationMessage = message || '';
+           this.validity = { 
+               valid: !Object.keys(flags || {}).length,
+               customError: !!flags?.customError,
+               ...flags
+           };
+        },
+        validity: { valid: true },
+        validationMessage: '',
+        checkValidity() { return this.validity.valid; },
+        reportValidity() { return this.validity.valid; }
+      };
+    }
+    return this._internals;
   }
   attachShadow() {
     this.shadowRoot = new FakeShadowRoot(this.ownerDocument, this);

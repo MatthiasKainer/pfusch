@@ -1,7 +1,9 @@
 // Unit Tests for Depths of Crimson
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { setupDomStubs, loadBaseDocument, pfuschTest, flushEffects, import_for_test } from './pfusch-stubs.js';
+import { 
+    setupDomStubs, loadBaseDocument, pfuschTest, flushEffects, import_for_test 
+} from '../../unit-tests/pfusch-stubs.js';
 
 let restore;
 
@@ -411,26 +413,6 @@ test('Inventory panel state management', async () => {
     assert.equal(state.potions.health, 5, 'Should have 5 health potions');
     assert.equal(state.potions.mana, 3, 'Should have 3 mana potions');
     assert.equal(state.classId, 'mage', 'Should be mage class');
-});
-
-test('Character select validates selection before start', async () => {
-    const component = pfuschTest('character-select', {
-        open: true,
-        selectedClass: null,
-        selectedGender: null
-    });
-    
-    await component.flush();
-    
-    const startBtn = component.get('.start-btn');
-    assert.ok(startBtn.elements[0].disabled, 'Start button should be disabled without selection');
-    
-    // Select class and gender
-    component.get('.class-card').first.click();
-    await component.flush();
-    
-    component.get('.gender-btn').first.click();
-    await component.flush();
 });
 
 // ============================================

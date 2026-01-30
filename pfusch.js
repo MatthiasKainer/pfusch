@@ -31,6 +31,8 @@ export function pfusch(tagName, initialState, template) {
         static observedAttributes = ["id", "as", "inject-styles", "inject-links", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase()])];
         #internals;
 
+        get internals() { return this.#internals; }
+
         constructor() {
             super();
             this.#internals = this.attachInternals();
