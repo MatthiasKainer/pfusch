@@ -28,7 +28,7 @@ export function pfusch(tagName, initialState, template) {
 
     class Pfusch extends HTMLElement {
         static formAssociated = true;
-        static observedAttributes = ["id", "as", "inject-styles", "inject-links", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase()])];
+        static observedAttributes = ["id", "as", "inject-styles", "inject-links", ...Object.keys(initialState).flatMap(k => [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCase()])];
         #internals;
 
         get internals() { return this.#internals; }
@@ -38,7 +38,7 @@ export function pfusch(tagName, initialState, template) {
             this.#internals = this.attachInternals();
             this._f = 32; this._subs = {}; this._ids = new Map(); // bits: 1=scriptsExec 2=stylesInj 4=linksCloned 8=rendering 16=needsRerender 32=init 64=queued
             this.is = { ...initialState };
-            for (const [k] of Object.entries(initialState)) { const attr = this.getAttribute(k) || this.getAttribute(k.toLowerCase()); if (attr !== null) this.is[k] = json(attr); }
+            for (const [k] of Object.entries(initialState)) { const attr = this.getAttribute(k) || this.getAttribute(k.toLowerCase()) || this.getAttribute(k.replace(/[A-Z]/g, "-$&").toLowerCase()); if (attr !== null) this.is[k] = json(attr); }
             this.lightDOMChildren = Array.from(this.children); this._hydrating = true;
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             this.attachShadow({ mode: 'open', serializable: true });
@@ -52,7 +52,7 @@ export function pfusch(tagName, initialState, template) {
         disconnectedCallback() { this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false })); } // cleanup event
         getStableId(tag, pos) { const sig = `${tag}-${pos}`; if (!this._ids.has(sig)) this._ids.set(sig, `${tag.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`); return this._ids.get(sig); }
 
-        attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = Object.keys(this.is).find(k => k === name || k.toLowerCase() === name); if (key && this.state) this.state[key] = json(newValue); }
+        attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = Object.keys(this.is).find(k => k === name || k.toLowerCase() === name || k.replace(/[A-Z]/g, "-$&").toLowerCase() === name); if (key && this.state) this.state[key] = json(newValue); }
 
         render() {
             if (!template) return;

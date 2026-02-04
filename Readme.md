@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-132-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-8.4K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.3K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-132-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-8.6K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.3K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -950,16 +950,20 @@ pfusch("my-component", {
 
 <!-- Explicit lowercase (what HTML actually stores) -->
 <my-component contenttext="Hello" maxlength="50" isvisible="true"></my-component>
+
+<!-- Kebab-case (automatically mapped to camelCase) -->
+<my-component content-text="Hello" max-length="50" is-visible="true"></my-component>
 ```
 
-**✅ Both of these work in JavaScript:**
+**✅ All of these work in JavaScript:**
 ```javascript
-// Both camelCase and lowercase attribute names work
+// CamelCase, lowercase, and kebab-case attribute names work
 el.setAttribute("contentText", "Hello");     // Works
 el.setAttribute("contenttext", "Hello");     // Also works
+el.setAttribute("content-text", "Hello");    // Also works
 ```
 
-pfusch automatically handles the mapping between lowercase HTML attributes and camelCase JavaScript properties, so you don't have to worry about it! Well, except when you do. Like when you want to set it on the state directly, it does matter:
+pfusch automatically handles the mapping between lowercase or kebab-case HTML attributes and camelCase JavaScript properties, so you don't have to worry about it! Well, except when you do. Like when you want to set it on the state directly, it does matter:
 
 ```javascript
 pfusch("my-component", { contentText: "hello" }, (state) => [

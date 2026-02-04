@@ -107,3 +107,39 @@ test('pfusch children helper works', () => {
   
   assert.ok(el.shadowRoot.querySelector('.wrapper'), 'Wrapper should exist');
 });
+
+test('pfusch handles camelCase attributes', async () => {
+    pfusch('test-camel', { camelCase: 'initial' }, (state) => [
+        html.div(state.camelCase)
+    ]);
+    
+    const el = document.createElement('test-camel');
+    el.setAttribute('camelcase', 'parsed');
+    document.body.appendChild(el);
+    el.connectedCallback();
+    
+    assert.equal(el.state.camelCase, 'parsed');
+
+    el.setAttribute('camelCase', 'updated');
+    assert.equal(el.state.camelCase, 'updated');
+    
+    el.setAttribute('camelcase', 'lowercase');
+    assert.equal(el.state.camelCase, 'lowercase');
+});
+
+test('pfusch handles kebab-case attributes', async () => {
+    pfusch('test-kebab', { kebabCase: 'initial' }, (state) => [
+        html.div(state.kebabCase)
+    ]);
+    
+    const el = document.createElement('test-kebab');
+    el.setAttribute('kebab-case', 'start');
+    
+    document.body.appendChild(el);
+    el.connectedCallback();
+    
+    assert.equal(el.state.kebabCase, 'start', 'Should initialize from kebab-case attribute');
+
+    el.setAttribute('kebab-case', 'changed');
+    assert.equal(el.state.kebabCase, 'changed', 'Should update state when kebab-case attribute changes');
+});
