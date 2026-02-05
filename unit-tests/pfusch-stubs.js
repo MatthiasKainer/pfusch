@@ -90,11 +90,11 @@ const matchSelector = (el, selector) => {
 
     const baseParts = base.split('.').filter(Boolean);
     let tag = baseParts[0] || base;
-    const classes = baseParts.slice(1);
+    let classes = baseParts.slice(1);
 
     if (base.startsWith('.')) {
       tag = '*';
-      classes.push(base.replace('.', ''));
+      classes = baseParts;
     } else if (base.startsWith('#')) {
       return el.id === base.slice(1);
     }
@@ -279,6 +279,7 @@ class FakeElement {
       this.attributeChangedCallback(name, prev, stringValue);
     }
   }
+  get isConnected() { return !!this.parentNode; }
   getAttribute(name) {
     return this.attributes.has(name) ? this.attributes.get(name) : null;
   }
