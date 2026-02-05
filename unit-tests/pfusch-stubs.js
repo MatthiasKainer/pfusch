@@ -14,6 +14,7 @@ const original = {
   FormData: globalThis.FormData,
   CustomEvent: globalThis.CustomEvent,
   requestAnimationFrame: globalThis.requestAnimationFrame,
+  cancelAnimationFrame: globalThis.cancelAnimationFrame,
   CSSStyleSheet: globalThis.CSSStyleSheet,
   fetch: globalThis.fetch,
   localStorage: globalThis.localStorage,
@@ -1221,6 +1222,7 @@ export function setupDomStubs() {
   globalThis.FormData = FakeFormData;
   globalThis.CustomEvent = FakeCustomEvent;
   globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
   globalThis.MutationObserver = FakeMutationObserver;
   globalThis.triggerMutation = triggerMutation;
   return {
@@ -1237,6 +1239,7 @@ export function setupDomStubs() {
       globalThis.FormData = original.FormData || globalThis.FormData;
       globalThis.CustomEvent = original.CustomEvent || globalThis.CustomEvent;
       globalThis.requestAnimationFrame = original.requestAnimationFrame || globalThis.requestAnimationFrame;
+      globalThis.cancelAnimationFrame = original.cancelAnimationFrame || globalThis.cancelAnimationFrame;
       globalThis.fetch = original.fetch || globalThis.fetch;
       globalThis.KeyboardEvent = original.KeyboardEvent || globalThis.KeyboardEvent;
       globalThis.localStorage = original.localStorage || globalThis.localStorage;
