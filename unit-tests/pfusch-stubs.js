@@ -661,6 +661,7 @@ class FakeDocument {
     this._listeners = new Map();
     this.body = new FakeElement('body', this);
     this.documentElement = new FakeElement('html', this);
+    this.cookie = '';
   }
   createElement(tag) {
     const name = String(tag || '');
@@ -727,7 +728,14 @@ class FakeWindow {
   constructor(selection, messageListeners) {
     this._selection = selection;
     this._listeners = messageListeners || new Map();
-    this.location = { origin: 'http://localhost', hostname: 'localhost' };
+    this.location = {
+      origin: 'http://localhost',
+      hostname: 'localhost',
+      pathname: '/',
+      search: '',
+      hash: '',
+      href: 'http://localhost/'
+    };
     this.document = null;
   }
   addEventListener(type, handler) {
