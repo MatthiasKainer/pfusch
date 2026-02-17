@@ -822,6 +822,7 @@ const findCallerFile = () => {
 const PFUSCH_REMOTE_URL = new URL('https://matthiaskainer.github.io/pfusch/pfusch.js');
 const PFUSCH_CDN_RE = /(['"])(?:https:\/\/matthiaskainer\.github\.io\/pfusch\/pfusch(?:\.min)?\.js|\.\/pfusch\.js)\1/g;
 const pfuschImportCache = new Map();
+let pfuschImportEpoch = 0;
 const pfuschRemoteHash = createHash('sha1').update(PFUSCH_REMOTE_URL.href).digest('hex').slice(0, 8);
 const pfuschRemotePath = path.join(os.tmpdir(), `pfusch.remote.${pfuschRemoteHash}.js`);
 let pfuschRemotePromise = null;
@@ -1057,7 +1058,7 @@ export async function import_for_test(modulePath, pfuschPathOrOptions = null, ex
     }
   }
 
-  const cacheKey = `${moduleUrl.href}::${pfuschUrl.href}::${JSON.stringify(replacements)}`;
+  const cacheKey = `${pfuschImportEpoch}::${moduleUrl.href}::${pfuschUrl.href}::${JSON.stringify(replacements)}`;
   const cached = pfuschImportCache.get(cacheKey);
   if (cached) return import(cached);
 
@@ -1143,6 +1144,9 @@ export async function loadDocumentFromString(html) {
 }
 
 export function setupDomStubs() {
+  // Recreate module side effects (e.g., customElements registration) for each fresh DOM sandbox.
+  pfuschImportCache.clear();
+  pfuschImportEpoch += 1;
   const messageListeners = new Map();
   const selection = new FakeSelection();
   const fakeWindow = new FakeWindow(selection, messageListeners);
