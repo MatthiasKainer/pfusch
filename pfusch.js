@@ -71,7 +71,7 @@ export function pfusch(tagName, initialState, template) {
 
             const elementItems = []; this._pos = 0;
             const mergeFromOriginal = (tplNode) => { const orig = tplNode.id && this._lightById?.get(tplNode.id); if (orig && orig.tagName === tplNode.tagName) { const tplAttrs = new Set(Array.from(tplNode.attributes).map(a => a.name)); Array.from(orig.attributes).forEach(a => { if (!tplAttrs.has(a.name)) tplNode.setAttribute(a.name, a.value); }); orig.classList.forEach(cls => tplNode.classList.add(cls)); if ((orig instanceof HTMLInputElement || orig instanceof HTMLTextAreaElement) && !tplNode.hasAttribute('value') && orig.value && !tplNode.value) tplNode.value = orig.value; } tplNode.querySelectorAll?.('[id]').forEach(mergeFromOriginal); };
-            const pushEl = el => { if (!el.id) el.id = this.getStableId(el.tagName, this._pos++); mergeFromOriginal(el); elementItems.push(el); };
+            const pushEl = el => { if (!el.id) el.id = this.getStableId(el.tagName, this._pos++); if (this._lightById.size) mergeFromOriginal(el); elementItems.push(el); };
             const processItem = i => { if (!i) return; const el = i?.element || (isEl(i) ? i : null); if (el) pushEl(el); else if (typeof i === 'string') { const span = document.createElement('span'); span.textContent = i; pushEl(span); } };
 
             result.forEach(item => {
@@ -101,6 +101,11 @@ export function pfusch(tagName, initialState, template) {
             const syncNodeChildren = (o, n) => {
                 const newNodes = Array.from(n.childNodes);
                 if (!newNodes.length) { if (o.firstChild) o.textContent = ''; return; }
+                const oldNodes = Array.from(o.childNodes);
+                if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => c.nodeType === newNodes[i].nodeType && (c.nodeType !== 1 || c.tagName === newNodes[i].tagName))) {
+                    oldNodes.forEach((c, i) => { const d = newNodes[i]; c.nodeType === 3 ? (c.textContent !== d.textContent && (c.textContent = d.textContent)) : syncNode(c, d); });
+                    return;
+                }
                 const textPool = [], elemById = new Map(), elemPools = new Map();
                 for (const c of Array.from(o.childNodes))
                     if (c.nodeType === 3) textPool.push(c); else if (c.nodeType === 1) { if (c.id) elemById.set(c.id, c); else { const p = elemPools.get(c.tagName) || []; p.push(c); elemPools.set(c.tagName, p); } }
