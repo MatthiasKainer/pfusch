@@ -143,3 +143,51 @@ test('pfusch handles kebab-case attributes', async () => {
     el.setAttribute('kebab-case', 'changed');
     assert.equal(el.state.kebabCase, 'changed', 'Should update state when kebab-case attribute changes');
 });
+
+test('dom stubs support descendant selectors', () => {
+  const header = document.createElement('section');
+  header.className = 'dashboard-header';
+  const title = document.createElement('h1');
+  title.textContent = 'Dashboard';
+  header.appendChild(title);
+  document.body.appendChild(header);
+
+  const results = document.body.querySelectorAll('.dashboard-header h1');
+  assert.equal(results.length, 1);
+  assert.equal(results[0], title);
+  assert.equal(title.matches('.dashboard-header h1'), true);
+
+  header.remove();
+});
+
+test('dom stubs handle bubbling native Event objects at window level', () => {
+  const target = document.createElement('div');
+  let called = false;
+  const handler = () => {
+    called = true;
+  };
+
+  window.addEventListener('native-bubble', handler);
+  assert.doesNotThrow(() => {
+    target.dispatchEvent(new Event('native-bubble', { bubbles: true }));
+  });
+  window.removeEventListener('native-bubble', handler);
+
+  assert.equal(called, true);
+});
+
+test('dom stubs set submit event target for native Event instances', () => {
+  const form = document.createElement('form');
+  const input = document.createElement('input');
+  form.appendChild(input);
+
+  let queried = null;
+  form.addEventListener('submit', (e) => {
+    queried = e.target.querySelector('input');
+  });
+
+  assert.doesNotThrow(() => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(queried, input);
+});

@@ -25,6 +25,7 @@ export const html = new Proxy({}, {
 
 export function pfusch(tagName, initialState, template) {
     if (!template) [template, initialState] = [initialState, {}];
+    const attrMap = Object.fromEntries(Object.keys(initialState).flatMap(k => [[k, k], [k.toLowerCase(), k], [k.replace(/[A-Z]/g, "-$&").toLowerCase(), k]]));
 
     class Pfusch extends HTMLElement {
         static formAssociated = true;
@@ -42,17 +43,18 @@ export function pfusch(tagName, initialState, template) {
             this.lightDOMChildren = Array.from(this.children); this._hydrating = true;
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             this.attachShadow({ mode: 'open', serializable: true });
-            this.state = new Proxy({ ...this.is }, {
-                set: (target, key, value) => { if (target[key] !== value) { target[key] = value; if (key !== "subscribe" && !(this._f & 32)) { this.scheduleRender(); this.#internals.setFormValue(jstr(target)); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
+            this._raw = { ...this.is };
+            this.state = new Proxy(this._raw, {
+                set: (target, key, value) => { if (target[key] !== value) { target[key] = value; if (key !== "subscribe" && !(this._f & 32)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
                 get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : target[key]
             });
         }
 
         connectedCallback() { if (this._f & 32) { this._f &= ~32; if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render(); } }
         disconnectedCallback() { this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false })); } // cleanup event
-        getStableId(tag, pos) { const sig = `${tag}-${pos}`; if (!this._ids.has(sig)) this._ids.set(sig, `${tag.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`); return this._ids.get(sig); }
+        getStableId(tag, pos) { const sig = `${tag}-${pos}`; return this._ids.get(sig) || (this._ids.set(sig, `${tag.toLowerCase()}-${pos}`), `${tag.toLowerCase()}-${pos}`); }
 
-        attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = Object.keys(this.is).find(k => k === name || k.toLowerCase() === name || k.replace(/[A-Z]/g, "-$&").toLowerCase() === name); if (key && this.state) this.state[key] = json(newValue); }
+        attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = json(newValue); }
 
         render() {
             if (!template) return;
@@ -82,6 +84,7 @@ export function pfusch(tagName, initialState, template) {
 
             this.syncChildren(this.shadowRoot, elementItems.filter(e => e.tagName !== 'LINK'));
             if (focusId) requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
+            this.#internals.setFormValue(jstr(this._raw));
             this._f &= ~8; this._hydrating = false; if (this._f & 64) this._f &= ~64; if (this._f & 16) { this._f &= ~16; this.render(); }
         }
 

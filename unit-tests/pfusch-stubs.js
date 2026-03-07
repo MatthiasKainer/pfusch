@@ -73,14 +73,94 @@ const connectTree = (node) => {
   };
   walk(node);
 };
+const disconnectTree = (node) => {
+  if (!node) return;
+  const walk = (current) => {
+    if (!current) return;
+    if (typeof current.disconnectedCallback === 'function') current.disconnectedCallback();
+    if (current.childNodes) current.childNodes.forEach(child => walk(child));
+    if (current.shadowRoot?.childNodes) current.shadowRoot.childNodes.forEach(child => walk(child));
+  };
+  walk(node);
+};
+const toDispatchEvent = (event) => {
+  if (typeof event === 'string') return { type: event };
+  if (!event || typeof event !== 'object') return {};
+
+  const NativeEvent = globalThis.Event;
+  if (typeof NativeEvent === 'function' && event instanceof NativeEvent) {
+    const evt = {
+      type: event.type,
+      bubbles: !!event.bubbles,
+      cancelable: !!event.cancelable,
+      composed: !!event.composed,
+      defaultPrevented: !!event.defaultPrevented,
+      preventDefault() {
+        this.defaultPrevented = true;
+        event.preventDefault?.();
+      },
+      stopPropagation() {
+        this._stopped = true;
+        event.stopPropagation?.();
+      }
+    };
+    if ('detail' in event) evt.detail = event.detail;
+    return evt;
+  }
+
+  return event;
+};
 
 const matchSelector = (el, selector) => {
   if (!selector || !el) return false;
   const normalized = selector.trim();
   if (!normalized) return false;
 
-  const selectors = normalized.split(',').map(s => s.trim()).filter(Boolean);
-  const matchesSingle = (sel) => {
+  const splitSelectors = (input, separatorRegex) => {
+    const parts = [];
+    let current = '';
+    let attrDepth = 0;
+    let quote = null;
+
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i];
+      if (quote) {
+        current += ch;
+        if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === '\'') {
+        quote = ch;
+        current += ch;
+        continue;
+      }
+      if (ch === '[') {
+        attrDepth++;
+        current += ch;
+        continue;
+      }
+      if (ch === ']') {
+        attrDepth = Math.max(0, attrDepth - 1);
+        current += ch;
+        continue;
+      }
+
+      if (attrDepth === 0 && separatorRegex.test(ch)) {
+        const part = current.trim();
+        if (part) parts.push(part);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+
+    const last = current.trim();
+    if (last) parts.push(last);
+    return parts;
+  };
+
+  const selectors = splitSelectors(normalized, /,/);
+  const matchesSimple = (target, sel) => {
     let base = sel;
     let attr = null;
     const attrMatch = sel.match(/^(.*?)\[([^=\]]+)=\s*"?([^\]"]+)"?\s*\]$/);
@@ -97,13 +177,13 @@ const matchSelector = (el, selector) => {
       tag = '*';
       classes = baseParts;
     } else if (base.startsWith('#')) {
-      return el.id === base.slice(1);
+      return target.id === base.slice(1);
     }
 
     const customMatchOnly = !base.startsWith('.') && !base.startsWith('#') && base.includes('-') && globalThis.customElements?.get?.(base);
-    const tagMatch = el.tagName?.toLowerCase() === tag.toLowerCase();
-    const classMatch = el.classList.contains(tag);
-    const idMatch = el.id === tag;
+    const tagMatch = target.tagName?.toLowerCase() === tag.toLowerCase();
+    const classMatch = target.classList.contains(tag);
+    const idMatch = target.id === tag;
     const tagMatches = tag === '*'
       ? true
       : customMatchOnly
@@ -111,10 +191,32 @@ const matchSelector = (el, selector) => {
         : (tagMatch || classMatch || idMatch);
 
     if (!tagMatches) return false;
-    if (classes.length && !classes.every(cls => el.classList.contains(cls))) return false;
+    if (classes.length && !classes.every(cls => target.classList.contains(cls))) return false;
     if (attr) {
-      const val = el.getAttribute(attr.name);
+      const val = target.getAttribute(attr.name);
       if (val == null || String(val) !== String(attr.value)) return false;
+    }
+    return true;
+  };
+
+  const findAncestorMatch = (node, sel) => {
+    let current = node?.parentNode || node?.host || null;
+    while (current) {
+      if (matchesSimple(current, sel)) return current;
+      current = current.parentNode || current.host || null;
+    }
+    return null;
+  };
+
+  const matchesSingle = (sel) => {
+    const chain = splitSelectors(sel, /\s/);
+    if (!chain.length) return false;
+
+    let current = el;
+    if (!matchesSimple(current, chain[chain.length - 1])) return false;
+    for (let i = chain.length - 2; i >= 0; i--) {
+      current = findAncestorMatch(current, chain[i]);
+      if (!current) return false;
     }
     return true;
   };
@@ -215,6 +317,7 @@ class FakeElement {
     const index = this._childNodes.indexOf(node);
     if (index >= 0) {
       this._childNodes.splice(index, 1);
+      disconnectTree(node);
       if (node && typeof node === 'object') node.parentNode = null;
     }
   }
@@ -222,8 +325,10 @@ class FakeElement {
     if (!this.parentNode) return;
     const index = this.parentNode._childNodes.indexOf(this);
     if (index >= 0) {
+      disconnectTree(this);
       this.parentNode._childNodes.splice(index, 1, node);
       node.parentNode = this.parentNode;
+      connectTree(node);
     }
   }
   get childNodes() {
@@ -309,12 +414,12 @@ class FakeElement {
     this._listeners.get(type)?.delete(handler);
   }
   dispatchEvent(event) {
-    const evt = typeof event === 'string' ? { type: event } : (event || {});
+    const evt = toDispatchEvent(event);
     evt.preventDefault ??= () => { evt.defaultPrevented = true; };
     evt.stopPropagation ??= () => { evt._stopped = true; };
     const handlers = Array.from(this._listeners.get(evt?.type) || []);
     try {
-      if (evt && evt.target === undefined) evt.target = this;
+      if (evt && evt.target == null) evt.target = this;
       evt.currentTarget = this;
     } catch (err) {
       /* ignore read-only target */
@@ -360,6 +465,7 @@ class FakeElement {
     return this._innerHTML;
   }
   set innerHTML(value) {
+    this._childNodes.forEach(child => disconnectTree(child));
     this._innerHTML = String(value ?? '');
     this._childNodes = [];
     this._textContent = '';
@@ -371,6 +477,7 @@ class FakeElement {
     return this._textContent;
   }
   set textContent(value) {
+    this._childNodes.forEach(child => disconnectTree(child));
     this._childNodes = [];
     this._textContent = String(value ?? '');
   }
@@ -710,12 +817,16 @@ class FakeDocument {
     this._listeners.get(type)?.delete(handler);
   }
   dispatchEvent(event) {
-    const evt = typeof event === 'string' ? { type: event } : (event || {});
+    const evt = toDispatchEvent(event);
     evt.preventDefault ??= () => { evt.defaultPrevented = true; };
     evt.stopPropagation ??= () => { evt._stopped = true; };
     const handlers = this._listeners.get(evt?.type) || new Set();
-    if (evt && evt.target === undefined) evt.target = this;
-    evt.currentTarget = this;
+    try {
+      if (evt && evt.target == null) evt.target = this;
+      evt.currentTarget = this;
+    } catch (err) {
+      /* ignore read-only target/currentTarget on native events */
+    }
     handlers.forEach(handler => handler.call(this, evt));
     if (evt.bubbles && !evt._stopped) {
       const win = this.defaultView || globalThis.window;
@@ -747,12 +858,16 @@ class FakeWindow {
     this._listeners.get(type)?.delete(handler);
   }
   dispatchEvent(event) {
-    const evt = typeof event === 'string' ? { type: event } : (event || {});
+    const evt = toDispatchEvent(event);
     evt.preventDefault ??= () => { evt.defaultPrevented = true; };
     evt.stopPropagation ??= () => { evt._stopped = true; };
     const handlers = this._listeners.get(evt?.type) || new Set();
-    if (evt && evt.target === undefined) evt.target = this;
-    evt.currentTarget = this;
+    try {
+      if (evt && evt.target == null) evt.target = this;
+      evt.currentTarget = this;
+    } catch (err) {
+      /* ignore read-only target/currentTarget on native events */
+    }
     handlers.forEach(handler => handler.call(this, evt));
     return true;
   }
@@ -946,7 +1061,13 @@ class PfuschNodeCollection {
     return new PfuschNodeCollection(node ? [node] : [], this.host);
   }
   at(index) {
-    return new PfuschNodeCollection([this.nodes[index]]);
+    return new PfuschNodeCollection([this.nodes[index]], this.host);
+  }
+  get state() {
+    return this.host?.state;
+  }
+  get shadowRoot() {
+    return this.host?.shadowRoot || null;
   }
   get value() {
     return this._firstNode()?.value;
@@ -989,7 +1110,7 @@ class PfuschNodeCollection {
         }
       });
     });
-    return new PfuschNodeCollection(matches);
+    return new PfuschNodeCollection(matches, this.host);
   }
   map(fn) {
     return this.nodes.map(node => fn(new PfuschNodeCollection([node], this.host)));
@@ -1105,6 +1226,7 @@ export async function loadBaseDocument(filePath) {
   }
   if (Array.isArray(doc.body._childNodes)) {
     doc.body._childNodes.forEach(child => {
+      disconnectTree(child);
       if (child?.parentNode === doc.body) child.parentNode = null;
     });
     doc.body._childNodes = [];
@@ -1128,6 +1250,7 @@ export async function loadDocumentFromString(html) {
   }
   if (Array.isArray(doc.body._childNodes)) {
     doc.body._childNodes.forEach(child => {
+      disconnectTree(child);
       if (child?.parentNode === doc.body) child.parentNode = null;
     });
     doc.body._childNodes = [];
