@@ -38,12 +38,11 @@ export function pfusch(tagName, initialState, template) {
             super();
             this.#internals = this.attachInternals();
             this._f = 32; this._subs = {}; this._ids = new Map(); // bits: 1=scriptsExec 2=stylesInj 4=linksCloned 8=rendering 16=needsRerender 32=init 64=queued
-            this.is = { ...initialState };
-            for (const [k] of Object.entries(initialState)) { const attr = this.getAttribute(k) || this.getAttribute(k.toLowerCase()) || this.getAttribute(k.replace(/[A-Z]/g, "-$&").toLowerCase()); if (attr !== null) this.is[k] = json(attr); }
-            this.lightDOMChildren = Array.from(this.children); this._hydrating = true;
+            this.lightDOMChildren = Array.from(this.children);
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             this.attachShadow({ mode: 'open', serializable: true });
-            this._raw = { ...this.is };
+            this._raw = { ...initialState };
+            for (const k of Object.keys(initialState)) { const v = this.getAttribute(k) || this.getAttribute(k.toLowerCase()) || this.getAttribute(k.replace(/[A-Z]/g, "-$&").toLowerCase()); if (v !== null) this._raw[k] = json(v); }
             this.state = new Proxy(this._raw, {
                 set: (target, key, value) => { if (target[key] !== value) { target[key] = value; if (key !== "subscribe" && !(this._f & 32)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
                 get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : target[key]
@@ -59,8 +58,10 @@ export function pfusch(tagName, initialState, template) {
         render() {
             if (!template) return;
             if (this._f & 8) { this._f |= 16; return; }
+            const snap = jstr(this._raw);
+            if (snap === this._snap) { this._f &= ~(64|16); return; }
             this._f |= 8;
-            const trigger = (eventName, detail) => { const full = `${tagName}.${eventName}`;[full, eventName].forEach(e => this.dispatchEvent(new CustomEvent(e, { detail, bubbles: true, composed: true }))); window.postMessage({ eventName: full, detail: { sourceId: this.is.id, data: jstr(detail) } }, "*"); };
+            const trigger = (eventName, detail) => { const full = `${tagName}.${eventName}`;[full, eventName].forEach(e => this.dispatchEvent(new CustomEvent(e, { detail, bubbles: true, composed: true }))); window.postMessage({ eventName: full, detail: { sourceId: this.id, data: jstr(detail) } }, "*"); };
             const children = sel => sel ? this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === sel.toLowerCase() || c.matches?.(sel)) : this.lightDOMChildren;
             const result = template(this.state, trigger, { children, childElements: s => children(s).map(toElem) });
             if (!Array.isArray(result)) return;
@@ -84,8 +85,8 @@ export function pfusch(tagName, initialState, template) {
 
             this.syncChildren(this.shadowRoot, elementItems.filter(e => e.tagName !== 'LINK'));
             if (focusId) requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
-            this.#internals.setFormValue(jstr(this._raw));
-            this._f &= ~8; this._hydrating = false; if (this._f & 64) this._f &= ~64; if (this._f & 16) { this._f &= ~16; this.render(); }
+            this.#internals.setFormValue(this._snap = (this._f & 16 ? jstr(this._raw) : snap));
+            this._f &= ~8; if (this._f & 64) this._f &= ~64; if (this._f & 16) { this._f &= ~16; this.render(); }
         }
 
         scheduleRender() { if (this._f & 8) { this._f |= 16; return; } if (this._f & 64) return; this._f |= 64; queueMicrotask(() => { if (!(this._f & 64) || (this._f & 8)) { this._f |= 16; return; } this.render(); }); }
