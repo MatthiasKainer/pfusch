@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-132-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-8.6K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.3K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-148-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-11K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-3.9K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -742,6 +742,28 @@ The web has excellent built-in features for navigation, forms, and accessibility
 
 But really, this libary is thought to embrace what you get for free, namely html, standard css, and server side routing/rendering, and focused on progressive enhancement. If you want to build a SPA, you can do that, but you have to do it with the tools you have, not the tools you want.
 
+### Using `html.*` descriptors outside a component with `toElement`
+
+Inside a pfusch template, `html.*` returns lightweight descriptors — plain objects that pfusch syncs to real DOM efficiently. If you need a real `HTMLElement` from a descriptor (e.g. for use in a standalone utility, unit test, or imperative code), use `toElement`:
+
+```js
+import { html, toElement } from "./pfusch.js";
+
+const desc = html.div({ class: "card" },
+  html.h2("Title"),
+  html.p("Body text")
+);
+
+// desc is a descriptor: { _t, _a, _c, _re }
+// toElement converts it (and all its children) to a real HTMLElement
+const el = toElement(desc);
+document.body.appendChild(el);
+```
+
+`toElement` is recursive — child descriptors are also materialized. It sets all attributes via `setAttribute` (so custom element `attributeChangedCallback` fires correctly), attaches event listeners, and handles `innerHTML` content. It does **not** patch existing DOM — it always creates fresh nodes.
+
+> Use `toElement` only when you need real DOM outside a render cycle. Inside a pfusch template, return descriptors directly and let pfusch handle patching.
+
 ### And whats with all that `html.*` things?
 
 This gives you access to all html elements (and the elements you created). For html elements, do `html.name`, for web components do `html["name"]`. Any attributes & events can be passed as first argument, the inner content as second (as string or another `html.*`). If you don't have any attributes, just add the inner content.
@@ -830,7 +852,6 @@ Event names in pfusch are the standard DOM event names (click, keydown, change),
 ```javascript
 html.input({
   name: "value"
-})
 })
 ```
 

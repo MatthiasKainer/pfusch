@@ -1,7 +1,7 @@
 // game.test.js - Tests for The Mill game
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pfusch, html, script } from '../pfusch.js';
+import { pfusch, html, script, toElement } from '../pfusch.js';
 import { setupDomStubs, pfuschTest } from './pfusch-stubs.js';
 
 let restore;
@@ -108,6 +108,26 @@ test('pfusch children helper works', () => {
   assert.ok(el.shadowRoot.querySelector('.wrapper'), 'Wrapper should exist');
 });
 
+test('pfusch defers script until light DOM children are ready', async () => {
+  let formCount = -1;
+
+  pfusch('test-late-children', {}, (state, trigger, { children }) => [
+    script(function() {
+      formCount = children('form').length;
+    }),
+    html.slot()
+  ]);
+
+  const el = document.createElement('test-late-children');
+  document.body.appendChild(el);
+
+  const form = document.createElement('form');
+  el.appendChild(form);
+
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(formCount, 1, 'Script should see light DOM children that arrive right after connect');
+});
+
 test('pfusch handles camelCase attributes', async () => {
     pfusch('test-camel', { camelCase: 'initial' }, (state) => [
         html.div(state.camelCase)
@@ -174,6 +194,95 @@ test('dom stubs handle bubbling native Event objects at window level', () => {
   window.removeEventListener('native-bubble', handler);
 
   assert.equal(called, true);
+});
+
+test('pfusch reuses DOM nodes on re-render (no re-insertion)', async () => {
+  pfusch('test-reuse', { count: 0 }, (state) => [
+    html.div({ class: 'item', 'data-count': String(state.count) }, `Count: ${state.count}`)
+  ]);
+
+  const el = document.createElement('test-reuse');
+  document.body.appendChild(el);
+  el.connectedCallback();
+
+  const firstDiv = el.shadowRoot.querySelector('.item');
+  assert.ok(firstDiv, 'Element should exist after first render');
+
+  el.state.count = 1;
+  await new Promise(r => setTimeout(r, 0));
+
+  const secondDiv = el.shadowRoot.querySelector('.item');
+  assert.strictEqual(firstDiv, secondDiv, 'Same DOM node should be reused, not re-inserted');
+  assert.equal(secondDiv.getAttribute('data-count'), '1', 'Attribute should be updated in-place');
+});
+
+test('pfusch reuses custom element children on re-render', async () => {
+  pfusch('test-custom-child', { label: 'a' }, (state) => [
+    html['test-inner-el']({ label: state.label })
+  ]);
+
+  const el = document.createElement('test-custom-child');
+  document.body.appendChild(el);
+  el.connectedCallback();
+
+  const first = el.shadowRoot.querySelector('test-inner-el');
+  assert.ok(first, 'Custom child should exist');
+
+  el.state.label = 'b';
+  await new Promise(r => setTimeout(r, 0));
+
+  const second = el.shadowRoot.querySelector('test-inner-el');
+  assert.strictEqual(first, second, 'Custom element should be patched in-place, not re-inserted');
+  assert.equal(second.getAttribute('label'), 'b', 'Attribute should be updated');
+});
+
+test('html element getter allows setting innerHTML via descriptor', () => {
+  pfusch('test-desc-html', { content: '<b>hello</b>' }, (state) => {
+    const container = html.div({ class: 'raw-content' });
+    container.element.innerHTML = state.content;
+    return [container];
+  });
+
+  const el = document.createElement('test-desc-html');
+  document.body.appendChild(el);
+  el.connectedCallback();
+
+  const div = el.shadowRoot.querySelector('.raw-content');
+  assert.ok(div, 'Container should exist');
+  assert.ok(div.innerHTML.includes('hello'), 'innerHTML should be set via .element.innerHTML setter');
+});
+
+test('toElement converts a descriptor to a real DOM element', () => {
+  const desc = html.div({ class: 'card', 'data-x': '1' }, 'hello');
+  const el = toElement(desc);
+  assert.equal(el.tagName, 'DIV');
+  assert.equal(el.getAttribute('class'), 'card');
+  assert.equal(el.getAttribute('data-x'), '1');
+  assert.equal(el.textContent, 'hello');
+});
+
+test('toElement materializes nested descriptors recursively', () => {
+  const desc = html.ul(html.li('a'), html.li('b'));
+  const el = toElement(desc);
+  assert.equal(el.tagName, 'UL');
+  assert.equal(el.querySelectorAll('li').length, 2);
+  assert.equal(el.querySelectorAll('li')[0].textContent, 'a');
+  assert.equal(el.querySelectorAll('li')[1].textContent, 'b');
+});
+
+test('toElement skips null/undefined attributes', () => {
+  const desc = html.span({ title: null, 'aria-label': undefined, id: 'x' });
+  const el = toElement(desc);
+  assert.equal(el.hasAttribute('title'), false);
+  assert.equal(el.hasAttribute('aria-label'), false);
+  assert.equal(el.getAttribute('id'), 'x');
+});
+
+test('toElement sets innerHTML when _html is present', () => {
+  const desc = html.div();
+  desc._html = '<b>bold</b>';
+  const el = toElement(desc);
+  assert.ok(el.innerHTML.includes('bold'));
 });
 
 test('dom stubs set submit event target for native Event instances', () => {
