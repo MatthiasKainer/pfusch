@@ -30,12 +30,7 @@ class Element {
 const toElem = node => node?._t ? node : (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) ? { element: node } : node?.nodeType === 3 ? node.textContent : node;
 export const toElement = (desc) => { const el = document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (k === 'checked') { if (v) el.setAttribute(k, ''); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) { el.innerHTML = desc._html; return el; } for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c) : c.element || c); return el; };
 
-export const html = new Proxy({}, {
-    get: (_, key) => (...args) => {
-        if (key === 'raw') return (content) => ({ _t: 'span', _a: {}, _c: [], _re: {}, _html: content });
-        return new Element(key, ...args);
-    }
-});
+export const html = new Proxy({}, { get: (_, key) => key === 'raw' ? (content, ...tags) => ({ _t: 'span', _a: {}, _c: [], _re: {}, _html: str(content, ...tags) }) : (...args) => new Element(key, ...args) });
 
 export function pfusch(tagName, initialState, template) {
     if (!template) [template, initialState] = [initialState, {}];

@@ -252,6 +252,26 @@ test('html element getter allows setting innerHTML via descriptor', () => {
   assert.ok(div.innerHTML.includes('hello'), 'innerHTML should be set via .element.innerHTML setter');
 });
 
+test('html.raw renders raw markup as a child descriptor', () => {
+  pfusch('test-html-raw', { count: 0 }, (state) => [
+    html.div(
+      html.raw(`<p><b>Count:</b> ${state.count}</p>`),
+      html.button({ click: () => state.count++ }, 'Increment')
+    )
+  ]);
+
+  const el = document.createElement('test-html-raw');
+  document.body.appendChild(el);
+  el.connectedCallback();
+
+  const rootDiv = el.shadowRoot.querySelector('div');
+  assert.ok(rootDiv, 'Root div should exist');
+  const rawSpan = rootDiv.querySelector('span');
+  assert.ok(rawSpan, 'html.raw should create a child element');
+  assert.ok(rawSpan.innerHTML.includes('<b>Count:</b> 0'), 'Raw markup should be rendered');
+  assert.ok(el.shadowRoot.querySelector('button'), 'Sibling button should still be rendered');
+});
+
 test('toElement converts a descriptor to a real DOM element', () => {
   const desc = html.div({ class: 'card', 'data-x': '1' }, 'hello');
   const el = toElement(desc);
