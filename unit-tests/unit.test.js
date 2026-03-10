@@ -236,6 +236,42 @@ test('pfusch reuses custom element children on re-render', async () => {
   assert.equal(second.getAttribute('label'), 'b', 'Attribute should be updated');
 });
 
+test('pfusch keeps camelCase attrs on custom children across rerenders', async () => {
+  pfusch('test-attr-parent', { tick: 0 }, (state) => [
+    html['test-attr-child']({ planId: 'plan-123', flag: state.tick ? 'b' : 'a' })
+  ]);
+
+  const el = document.createElement('test-attr-parent');
+  document.body.appendChild(el);
+  el.connectedCallback();
+
+  const child = el.shadowRoot.querySelector('test-attr-child');
+  assert.ok(child, 'Custom child should exist');
+  assert.equal(child.getAttribute('planId'), 'plan-123', 'Initial planId should be present');
+  assert.equal(child.getAttribute('flag'), 'a', 'Initial flag should be present');
+
+  const normalize = name => String(name).toLowerCase();
+  const setAttribute = child.setAttribute.bind(child);
+  const getAttribute = child.getAttribute.bind(child);
+  const hasAttribute = child.hasAttribute.bind(child);
+  const removeAttribute = child.removeAttribute.bind(child);
+  const remapped = new Map(Array.from(child.attributes).map(({ name, value }) => [normalize(name), value]));
+  child.attributes.clear();
+  for (const [name, value] of remapped) child.attributes.set(name, value);
+  child.setAttribute = (name, value) => setAttribute(normalize(name), value);
+  child.getAttribute = name => getAttribute(normalize(name));
+  child.hasAttribute = name => hasAttribute(normalize(name));
+  child.removeAttribute = name => removeAttribute(normalize(name));
+
+  el.state.tick = 1;
+  await new Promise(r => setTimeout(r, 0));
+
+  const rerendered = el.shadowRoot.querySelector('test-attr-child');
+  assert.strictEqual(rerendered, child, 'Child should be patched in-place');
+  assert.equal(rerendered.getAttribute('planId'), 'plan-123', 'planId should survive rerender');
+  assert.equal(rerendered.getAttribute('flag'), 'b', 'flag should update on rerender');
+});
+
 test('html element getter allows setting innerHTML via descriptor', () => {
   pfusch('test-desc-html', { content: '<b>hello</b>' }, (state) => {
     const container = html.div({ class: 'raw-content' });
