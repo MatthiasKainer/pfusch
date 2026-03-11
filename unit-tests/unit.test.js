@@ -272,6 +272,31 @@ test('pfusch keeps camelCase attrs on custom children across rerenders', async (
   assert.equal(rerendered.getAttribute('flag'), 'b', 'flag should update on rerender');
 });
 
+test('pfusch does not serialize disabled=false on nested child components', async () => {
+  pfusch('test-inner-disabled-child', { formLoading: true }, (state) => [
+    html.button(
+      { type: 'submit', disabled: state.formLoading },
+      state.formLoading ? 'Loading...' : 'Make it so!'
+    )
+  ]);
+
+  pfusch('test-inner-disabled-parent', { loading: false }, (state) => [
+    html['test-inner-disabled-child']({ formLoading: state.loading })
+  ]);
+
+  const el = document.createElement('test-inner-disabled-parent');
+  document.body.appendChild(el);
+  el.connectedCallback();
+  await new Promise(r => setTimeout(r, 0));
+
+  const inner = el.shadowRoot.querySelector('test-inner-disabled-child');
+  assert.ok(inner, 'Inner custom element should exist');
+
+  const button = inner.shadowRoot.querySelector('button');
+  assert.ok(button, 'Inner button should exist');
+  assert.equal(button.hasAttribute('disabled'), false, 'disabled attribute should be removed when false');
+});
+
 test('html element getter allows setting innerHTML via descriptor', () => {
   pfusch('test-desc-html', { content: '<b>hello</b>' }, (state) => {
     const container = html.div({ class: 'raw-content' });
