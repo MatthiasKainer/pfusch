@@ -297,6 +297,24 @@ test('pfusch does not serialize disabled=false on nested child components', asyn
   assert.equal(button.hasAttribute('disabled'), false, 'disabled attribute should be removed when false');
 });
 
+test('pfusch preserves non-boolean checked values across rerenders', async () => {
+  pfusch('test-non-bool-checked', { checkedAttr: 'first' }, (state) => [
+    html.input({ type: 'checkbox', checked: state.checkedAttr })
+  ]);
+
+  const el = document.createElement('test-non-bool-checked');
+  document.body.appendChild(el);
+  el.connectedCallback();
+
+  const input = el.shadowRoot.querySelector('input');
+  assert.ok(input, 'Input should exist');
+  assert.equal(input.getAttribute('checked'), 'first', 'Initial non-boolean checked value should be serialized as-is');
+
+  el.state.checkedAttr = 'second';
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(input.getAttribute('checked'), 'second', 'Rerender should keep non-boolean checked values as normal strings');
+});
+
 test('html element getter allows setting innerHTML via descriptor', () => {
   pfusch('test-desc-html', { content: '<b>hello</b>' }, (state) => {
     const container = html.div({ class: 'raw-content' });
@@ -340,6 +358,18 @@ test('toElement converts a descriptor to a real DOM element', () => {
   assert.equal(el.getAttribute('class'), 'card');
   assert.equal(el.getAttribute('data-x'), '1');
   assert.equal(el.textContent, 'hello');
+});
+
+test('toElement serializes boolean form props as true string', () => {
+  const desc = html.input({ type: 'checkbox', checked: true });
+  const el = toElement(desc);
+  assert.equal(el.getAttribute('checked'), 'true');
+});
+
+test('toElement preserves non-boolean values for boolean form props', () => {
+  const desc = html.input({ type: 'checkbox', checked: 'mixed' });
+  const el = toElement(desc);
+  assert.equal(el.getAttribute('checked'), 'mixed');
 });
 
 test('toElement materializes nested descriptors recursively', () => {

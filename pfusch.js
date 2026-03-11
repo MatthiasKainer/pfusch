@@ -2,6 +2,7 @@ const s = 'string', o = 'object', jstr = JSON.stringify, cssCache = new Map(), f
 const json = j => { try { return j && typeof j === s ? JSON.parse(j) : j; } catch { return j; } };
 const str = (string, ...tags) => typeof string === s ? string : string.reduce((acc, part, i) => acc + part + (tags[i] || ''), '');
 const isEl = n => n && (n.nodeType === 1 || (typeof window !== 'undefined' && window.Element && n instanceof window.Element));
+const isBoolFormPropValue = (key, value) => boolFormProps.has(key) && typeof value === 'boolean';
 
 export const css = (style, ...tags) => { const cssText = str(style, ...tags); let sheet; return { type: 'style', content: () => sheet || (sheet = cssCache.get(cssText) || (cssCache.set(cssText, sheet = new CSSStyleSheet()), sheet.replaceSync(cssText), sheet)) }; };
 export const script = js => ({ type: 'script', content: js });
@@ -28,13 +29,15 @@ class Element {
 }
 
 const toElem = node => node?._t ? node : (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) ? { element: node } : node?.nodeType === 3 ? node.textContent : node;
-export const toElement = (desc) => { const el = document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (boolFormProps.has(k)) { if (v) el.setAttribute(k, ''); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) { el.innerHTML = desc._html; return el; } for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c) : c.element || c); return el; };
+export const toElement = (desc) => { const el = document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (isBoolFormPropValue(k, v)) { if (v) el.setAttribute(k, 'true'); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) { el.innerHTML = desc._html; return el; } for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c) : c.element || c); return el; };
 
 export const html = new Proxy({}, { get: (_, key) => key === 'raw' ? (content, ...tags) => ({ _t: 'span', _a: {}, _c: [], _re: {}, _html: str(content, ...tags) }) : (...args) => new Element(key, ...args) });
 
 export function pfusch(tagName, initialState, template) {
     if (!template) [template, initialState] = [initialState, {}];
     const attrMap = Object.fromEntries(Object.keys(initialState).flatMap(k => [[k, k], [k.toLowerCase(), k], [k.replace(/[A-Z]/g, "-$&").toLowerCase(), k]]));
+    const boolStateKeys = new Set(Object.entries(initialState).filter(([, v]) => typeof v === 'boolean').map(([k]) => k));
+    const toStateValue = (key, rawValue) => !boolStateKeys.has(key) ? json(rawValue) : rawValue === null ? false : rawValue === '' ? true : ((rawValue = json(rawValue)), typeof rawValue === 'boolean' ? rawValue : Boolean(rawValue));
 
     class Pfusch extends HTMLElement {
         static formAssociated = true;
@@ -52,7 +55,7 @@ export function pfusch(tagName, initialState, template) {
             this._lightDomRetryDone = false;
             this.attachShadow({ mode: 'open', serializable: true });
             this._raw = { ...initialState };
-            for (const k of Object.keys(initialState)) { const v = this.getAttribute(k) || this.getAttribute(k.toLowerCase()) || this.getAttribute(k.replace(/[A-Z]/g, "-$&").toLowerCase()); if (v !== null) this._raw[k] = json(v); }
+            for (const k of Object.keys(initialState)) { let v = null; for (const attrName of [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCase()]) if ((v = this.getAttribute(attrName)) !== null) break; if (v !== null) this._raw[k] = toStateValue(k, v); }
             this.state = new Proxy(this._raw, {
                 set: (target, key, value) => { if (target[key] !== value) { target[key] = value; if (key !== "subscribe" && !(this._f & 32)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
                 get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : target[key]
@@ -63,7 +66,7 @@ export function pfusch(tagName, initialState, template) {
         disconnectedCallback() { this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false })); } // cleanup event
         getStableId(tag, pos) { const sig = `${tag}-${pos}`; return this._ids.get(sig) || (this._ids.set(sig, `${tag.toLowerCase()}-${pos}`), `${tag.toLowerCase()}-${pos}`); }
 
-        attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = json(newValue); }
+        attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = toStateValue(key, newValue); }
 
         render(force = false) {
             if (!template) return;
@@ -108,8 +111,8 @@ export function pfusch(tagName, initialState, template) {
             const ensureId = (n, pos) => n._el ? (n._el.id || (n._el.id = this.getStableId(n._el.tagName, pos))) : (n._a.id || (n._a.id = this.getStableId(n._t, pos)));
 
             const syncListeners = (t, src) => { if (!src._re && !t._re) return; t._re ??= {}; const inc = src._re || {}; for (const [ev, h] of Object.entries(inc)) if (t._re[ev] !== h) { if (t._re[ev]) t.removeEventListener(ev, t._re[ev]); t.addEventListener(ev, t._re[ev] = h); } for (const ev of Object.keys(t._re)) if (!inc[ev]) { t.removeEventListener(ev, t._re[ev]); delete t._re[ev]; } };
-            const syncAttrs = (t, src) => { const a = src._a || {}, seen = new Set(), n = t.tagName?.includes('-') ? k => String(k).toLowerCase() : k => String(k); for (const [k, v] of Object.entries(a)) { if (k === 'id' || typeof v === 'function') continue; const attr = n(k); if (boolFormProps.has(k)) { if (v) { seen.add(attr); if (!t.hasAttribute(attr)) t.setAttribute(attr, ''); } else if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } seen.add(attr); if (v == null) { if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } const sv = typeof v === o ? jstr(v) : String(v); if (t.getAttribute(attr) !== sv) t.setAttribute(attr, sv); } for (const at of Array.from(t.attributes)) { const attr = n(at.name); if (attr !== 'id' && !seen.has(attr)) t.removeAttribute(at.name); } };
-            const syncProps = (t, src) => { const a = src._a || {}; formProps.forEach(p => { if (p in a && a[p] !== t[p]) try { t[p] = a[p]; } catch {} }); if ('value' in a && !(document.activeElement === t || t.contains(document.activeElement)) && String(a.value) !== t.value) try { t.value = a.value; } catch {}; };
+            const syncAttrs = (t, src) => { const a = src._a || {}, seen = new Set(), n = t.tagName?.includes('-') ? k => String(k).toLowerCase() : k => String(k); for (const [k, v] of Object.entries(a)) { if (k === 'id' || typeof v === 'function') continue; const attr = n(k); if (isBoolFormPropValue(k, v)) { if (v) { seen.add(attr); if (t.getAttribute(attr) !== 'true') t.setAttribute(attr, 'true'); } else if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } seen.add(attr); if (v == null) { if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } const sv = typeof v === o ? jstr(v) : String(v); if (t.getAttribute(attr) !== sv) t.setAttribute(attr, sv); } for (const at of Array.from(t.attributes)) { const attr = n(at.name); if (attr !== 'id' && !seen.has(attr)) t.removeAttribute(at.name); } };
+            const syncProps = (t, src) => { const a = src._a || {}; formProps.forEach(p => { if (!(p in a) || typeof a[p] !== 'boolean') return; if (a[p] !== t[p]) try { t[p] = a[p]; } catch {} }); if ('value' in a && !(document.activeElement === t || t.contains(document.activeElement)) && String(a.value) !== t.value) try { t.value = a.value; } catch {}; };
 
             const syncNodeChildren = (o, n) => {
                 if (n._html !== undefined) { if (o.innerHTML !== n._html) o.innerHTML = n._html; return; }
