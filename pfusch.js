@@ -50,6 +50,7 @@ export function pfusch(tagName, initialState, template) {
             super();
             this.#internals = this.attachInternals();
             this._f = 32; this._subs = {}; this._ids = new Map(); // bits: 1=scriptsExec 2=stylesInj 4=linksCloned 8=rendering 16=needsRerender 32=init 64=queued
+            this._disconnectPending = false;
             this.lightDOMChildren = Array.from(this.children);
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             this._lightDomRetryDone = false;
@@ -62,8 +63,8 @@ export function pfusch(tagName, initialState, template) {
             });
         }
 
-        connectedCallback() { if (this._f & 32) { this._f &= ~32; if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render(); } }
-        disconnectedCallback() { this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false })); } // cleanup event
+        connectedCallback() { this._disconnectPending = false; if (this._f & 32) { this._f &= ~32; if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render(); } }
+        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
         getStableId(tag, pos) { const sig = `${tag}-${pos}`; return this._ids.get(sig) || (this._ids.set(sig, `${tag.toLowerCase()}-${pos}`), `${tag.toLowerCase()}-${pos}`); }
 
         attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = toStateValue(key, newValue); }
