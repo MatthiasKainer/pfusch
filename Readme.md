@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-146-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-11K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.0K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-170-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-11K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.2K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -159,7 +159,7 @@ Pfusch works seamlessly with your existing styles:
 <head>
   <!-- Your design system -->
   <link rel="stylesheet" href="design-system.css" data-pfusch>
-  <style id="pfusch-style">
+  <style data-pfusch>
     /* Additional component-specific styles */
     .status-badge { /* ... */ }
   </style>
@@ -685,23 +685,56 @@ hydration then comes for free.
 
 ### Styles are an issue! Whatever I define in the page is not applied to the component!
 
-That's because of the shadow dom. If you want to style the component from the outside, you can either use the `css` function, which will add a style to the component. If you want to just define some base classes that you can use in the component, you can use a `<style>` element with the id `pfusch-style`:
+That's because of the shadow dom. If you want to style the component from the outside, you can either use the `css` function, which will add a style to the component. If you want to just define some base classes that you can use in the component, add a `data-pfusch` attribute to a `<style>` element:
 
 ```html
-<style id="pfusch-style">
+<style data-pfusch>
   * {
     color: red;
   }
 </style>
 ```
 
-Every component will have this style applied, so you can define some base styles for your components. If you must do this for stylesheet links, then add the data-pfusch attribute to the link tag:
+Every component will have this style applied, so you can define some base styles for your components. The same works for stylesheet links — add the `data-pfusch` attribute to the link tag:
 
 ```html
 <link rel="stylesheet" href="styles.css" data-pfusch>
 ```
 
-This will add the stylesheet to the shadow dom of the component, so you can pass classes to the inside.
+This will add the stylesheet/style tag to the shadow dom of every component (once, on first render), so you can pass classes to the inside.
+
+**Using a different selector:** if `style[data-pfusch]` / `link[data-pfusch]` doesn't fit your page (e.g. some other tooling already owns that attribute), point a specific component at your own selector via the `inject-styles`/`inject-links` attributes:
+
+```html
+<style id="my-design-tokens">/* ... */</style>
+<my-widget inject-styles="#my-design-tokens" inject-links=".my-cdn-links"></my-widget>
+```
+
+Note the caveat above: `css` template literals are cached by their rendered text across every component instance, so keep them static — don't interpolate per-instance or frequently-changing values into a `css\`...\`` call, or the cache will grow without bound.
+
+### Can I defer rendering a component until it's needed?
+
+Yes — set `as="lazy"` on the tag. The component's template won't run on connect; nothing renders until the `as` attribute changes away from `"lazy"` (or is removed):
+
+```html
+<expensive-widget as="lazy"></expensive-widget>
+
+<script type="module">
+  import { pfusch, html } from "./pfusch.js";
+
+  pfusch("expensive-widget", {}, () => [html.div("Rendered!")]);
+
+  const observer = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      entry.target.removeAttribute("as");
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.querySelector("expensive-widget"));
+</script>
+```
+
+This is useful for below-the-fold widgets you don't want to pay the render cost for until they actually become visible.
 
 ### Okay, but I want to do something when state changes
 
@@ -763,6 +796,18 @@ document.body.appendChild(el);
 `toElement` is recursive — child descriptors are also materialized. It sets all attributes via `setAttribute` (so custom element `attributeChangedCallback` fires correctly), attaches event listeners, and handles `innerHTML` content. It does **not** patch existing DOM — it always creates fresh nodes.
 
 > Use `toElement` only when you need real DOM outside a render cycle. Inside a pfusch template, return descriptors directly and let pfusch handle patching.
+
+### Mutating a descriptor before returning it
+
+Every descriptor also exposes a `.element` property — a lightweight proxy over its internals that mimics a real element's `setAttribute`/`getAttribute`/`classList`/`innerHTML`, without creating a DOM node. It's there for the rare case where building up a descriptor across multiple statements is more convenient than passing everything through the attrs object in one call:
+
+```js
+const container = html.div({ class: "content" });
+container.element.innerHTML = state.content; // same effect as html.raw
+return [container];
+```
+
+For static markup, prefer `html.raw` — it's the more common, more discoverable way to reach the same result. `.element` is the escape hatch for when you need to mutate a descriptor imperatively.
 
 ### And whats with all that `html.*` things?
 
@@ -903,7 +948,7 @@ pfusch("my-component", {}, () => [
 ]);
 
 // ✅ Or use the global pfusch style tag
-// <style id="pfusch-style">
+// <style data-pfusch>
 //   .shared-class { margin: 10px; }
 // </style>
 ```

@@ -1,3 +1,173 @@
+# pfusch — agent reference
+
+pfusch is a ~170-line zero-dependency web component library (`pfusch.js`, no build step). It defines custom elements backed by Shadow DOM, direct-mutation state, and lightweight descriptor objects instead of a virtual DOM. This doc is the fast path to using it correctly — read the **Hard rules** before writing any component, they cover the behavior that isn't obvious from the API shape alone. The full source is pinned at the bottom as ground truth; if anything here conflicts with it, the source wins.
+
+## Mental model
+
+- `pfusch(tagName, initialState, template)` registers a custom element. `template(state, trigger, helpers)` returns an array of things to render: `html.*` descriptors, real DOM nodes, strings, `css` results, `script(...)` calls, or `null`/nested arrays (falsy entries are skipped).
+- There is no virtual DOM diffing. pfusch patches only the specific attributes/children that changed (`syncChildren` in the source).
+- State is a `Proxy` over a plain object. **Mutate it directly** (`state.count++`), don't replace it or treat it as immutable. Every mutation schedules a re-render on the next microtask (batched — many mutations in one tick still render once).
+- Declared state keys automatically become observed HTML attributes (in camelCase, lowercase, and kebab-case forms) — attributes drive state, state changes reflect back as the form-associated value. `pfusch` components are `formAssociated`, so they participate in real `<form>` submission.
+- Progressive enhancement is the intended default: write real HTML inside the custom element's tag, then read/keep it via the `children`/`childElements` helper instead of rebuilding it from scratch.
+
+## Quick start
+
+```js
+import { pfusch, html } from "./pfusch.js";
+
+pfusch("live-counter", { count: 0 }, (state) => [
+  html.div(
+    html.p(`Count: ${state.count}`),
+    html.button({ click: () => state.count++ }, "Increment")
+  )
+]);
+```
+
+```html
+<live-counter></live-counter>
+<script type="module" src="./app.js"></script>
+```
+
+## API surface
+
+| Export | Signature | Purpose |
+|---|---|---|
+| `pfusch` | `(tagName, initialState = {}, template) => CustomElementClass` | Defines and registers the custom element. `initialState` is optional — if omitted, `template` becomes the second argument. |
+| `html` | `html.div(...)`, `html["my-tag"](...)` | Proxy that builds descriptors: `{ _t, _a, _c, _re }` (tag, attrs, children, event handlers). Never real DOM until pfusch patches it in. First object argument = attrs/events, everything else = children. Also supports tagged-template calls: `` html.h2`Hello ${x}` ``. |
+| `html.raw` | `` html.raw`<b>...</b>` `` | Raw HTML string as a child (sets `innerHTML`, bypasses descriptor diffing for that subtree). |
+| `css` | `` css`...` `` | Returns `{ type: 'style', content() }`; adopted into the component's shadow root. Cached globally by rendered text — **keep the template literal static**, don't interpolate per-instance values into it. |
+| `script` | `(fn) => { type: 'script', content: fn }` | Runs `fn` once per component instance, after first render, with `this` bound to `{ component, shadowRoot, state, addEventListener, querySelector, querySelectorAll }`. Good for one-time setup: subscriptions, event listeners on light DOM, fetches. |
+| `toElement` | `(descriptor) => HTMLElement` | Materializes a descriptor into a real DOM node, recursively. Only use it **outside** a render cycle (standalone utilities, tests, imperative code) — inside a template, return descriptors and let pfusch patch them. |
+
+**Template function signature:** `(state, trigger, helpers) => [...]`
+- `trigger(name, detail)` — dispatches a `CustomEvent` as both `"<tagName>.<name>"` and bare `"<name>"` (bubbling, composed), *and* broadcasts via `window.postMessage({ eventName, detail: { sourceId, data } })` where `data` is `JSON.stringify(detail)`. The two delivery paths carry different shapes for `detail` — native listeners get the live object, `postMessage` listeners get the stringified `data` field and must parse it themselves. **Pass plain, serializable data** (`{ value: state.value }`), not a raw `Event`/`MouseEvent` object — see rule 11.
+- `helpers.children(selector?)` — the component's original light-DOM child elements (real `HTMLElement`s, not descriptors). No selector = all of them.
+- `helpers.childElements(selector?)` — like `children()` but descriptor-wrapped, safe to pass straight into a returned array.
+
+## Hard rules
+
+These are the things that don't fall out of reading the API — get them wrong and you'll either silently do nothing or silently do the wrong thing.
+
+1. **State key names must match exactly.** `state.contentText = x` and `state.contenttext = x` are *different properties* on the underlying object. Only the exact key you declared in `initialState` is wired up to attributes/re-renders. Setting any other key still "works" (it's a plain object) but pfusch now emits a one-time `console.warn` for it — treat that warning as a real bug, not noise.
+2. **Attribute names are case-flexible on the way in, not on the way out.** `contentText`, `contenttext`, and `content-text` as HTML attributes all map to a declared `contentText` state key. Going the other direction, you must use the exact declared casing.
+3. **Only a fixed list of boolean attributes get presence/absence semantics**: `checked, selected, disabled, readonly, multiple, hidden, required, autofocus, open, inert`. A boolean state value bound to any other attribute name is serialized as the literal string `"true"`/`"false"` — which is what you actually want for `aria-*` attributes (`aria-hidden`, `aria-expanded`, ...). Don't expect an arbitrary custom attribute to behave like `disabled`.
+4. **`css` templates must be static.** The compiled `CSSStyleSheet` is cached in a module-global `Map` keyed by the rendered CSS text, and it's never evicted. `` css`color: ${state.color}` `` with a frequently-changing `state.color` will leak stylesheets for the life of the page. Parameterize with CSS variables or classes instead.
+5. **`as="lazy"` defers the first render.** A component with that attribute renders nothing until `as` changes away from `"lazy"` (or is removed) — e.g. via an `IntersectionObserver`. Don't declare a state key named `as`, `id`, `inject-styles`, or `inject-links` — those attribute names are reserved by pfusch itself and are special-cased before the normal state-attribute mapping.
+6. **`inject-styles` / `inject-links` override the defaults.** By default, every component pulls in `document.querySelectorAll('style[data-pfusch]')` and `link[data-pfusch]` into its shadow root once, on first render. Set those attributes on the component tag to point at a different selector instead. External page CSS never penetrates the shadow DOM otherwise — use `css` or one of these two mechanisms, not a bare `<style>`/`<link>` with no `data-pfusch` attribute.
+7. **`helpers.children()` returns real, live DOM elements**, not descriptors — you can call `.querySelector`, mutate `.classList`, add listeners, etc. directly on them, and return them as-is in the template array. Don't try to convert them to `html.*` calls first.
+8. **This is not React.** No virtual DOM, no immutable state, no `useEffect`. Mutate `state.*` directly; use `script(...)` + `state.subscribe(key, cb)` for effect-like behavior; event handler keys are plain DOM event names (`click`, not `onClick`).
+9. **`.element`** on any descriptor is an escape hatch (`setAttribute`/`classList`/`innerHTML`-like proxy over the descriptor's internals) for imperatively mutating a descriptor across multiple statements before returning it. Prefer passing everything through the attrs object or `html.raw` for one-shot cases; reach for `.element` only when you're building a descriptor up incrementally. **Don't confuse this with rule 10.**
+10. **`html.element(...)` is not a thing — and won't tell you that.** `html` is an unguarded `Proxy` over tag names, so `html.element(...)` doesn't throw; it silently builds a descriptor for a literal, non-standard `<element>` tag. There is no generic "element" constructor. If you want a plain container, use `html.div(...)`/`html.span(...)`. (This is unrelated to the `.element` *getter* in rule 9 — same word, two unrelated APIs.)
+11. **Never pass a raw `Event`/`MouseEvent` object as `trigger()`'s `detail`.** `trigger` JSON-stringifies `detail` for the `postMessage` broadcast; a DOM event contains circular references. That stringify is wrapped in a try/catch, so it won't throw — but it silently falls back to `data: null`, so any `postMessage` listener gets nothing. (The native `CustomEvent` listener path still gets the live object, circular refs and all — the two delivery paths can end up carrying completely different payloads for the same `trigger()` call.) Pass plain data instead: `trigger("clicked", { value: state.value })`, not `trigger("clicked", e)`.
+12. **`html.slot() || fallback` never falls back.** Every `html.*` call returns an object, and objects are always truthy — `||` will pick `html.slot()` unconditionally regardless of whether anything is actually slotted in. Gate on an explicit condition instead: `hasContent ? html.slot() : fallbackUi`. Also treat `helpers.children()`/`childElements()` as a one-time snapshot of the light DOM taken around first render, not a live subscription to nodes appended later.
+13. **Prefer declarative event binding for elements the template itself renders**: `html.button({ click: fn })`, not `this.querySelector(...).addEventListener(...)` inside `script()`. `script()` runs once, during render, and its timing relative to node placement isn't something to rely on for elements pfusch owns. Reserve manual `addEventListener` inside `script()` for things pfusch doesn't render — light-DOM elements from `children()`, `window`, `document`, or third-party widgets.
+
+## Canonical patterns
+
+**Events, loosely coupled:**
+```js
+pfusch("data-loader", {}, (state, trigger) => [
+  html.button({
+    click: async () => {
+      const data = await fetch("/api/data").then(r => r.json());
+      trigger("loaded", { data }); // fires as "data-loader.loaded"
+    }
+  }, "Load")
+]);
+```
+
+**Progressive enhancement (keep the original markup, add behavior):**
+```js
+pfusch("email-form", { status: "" }, (state, trigger, { children }) => [
+  script(function () {
+    this.querySelector("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      state.status = "Submitting...";
+      await fetch(e.target.action, { method: "POST", body: new FormData(e.target) });
+      state.status = "Done";
+    });
+  }),
+  children()[0], // the original <form>, untouched
+  state.status ? html.p(state.status) : null
+]);
+```
+
+**Reacting to state changes (the "effect" pattern):**
+```js
+pfusch("item-list", { source: "", items: [] }, (state) => [
+  script(function () {
+    state.subscribe("source", async (src) => {
+      if (src) state.items = await fetch(`/data/${src}.json`).then(r => r.json());
+    });
+  }),
+  html.ul(...state.items.map(item => html.li(item.name)))
+]);
+```
+
+**Lazy-loading a below-the-fold component:**
+```html
+<expensive-widget as="lazy"></expensive-widget>
+<script type="module">
+  const el = document.querySelector("expensive-widget");
+  new IntersectionObserver(([e], obs) => {
+    if (e.isIntersecting) { el.removeAttribute("as"); obs.disconnect(); }
+  }).observe(el);
+</script>
+```
+
+## Testing
+
+Use `unit-tests/pfusch-stubs.js` for pure-Node tests (no browser needed):
+
+```js
+import { setupDomStubs, pfuschTest, flushEffects } from "./unit-tests/pfusch-stubs.js";
+import { pfusch, html } from "./pfusch.js";
+
+const { restore } = setupDomStubs();
+pfusch("my-widget", {}, () => [html.div("hi")]);
+
+const widget = pfuschTest("my-widget");
+await flushEffects();
+assert.equal(widget.get("div").textContent, "hi");
+restore();
+```
+
+`pfuschTest(tagName, attrs?)` returns a `PfuschNodeCollection`, not a raw array — use its helpers instead of indexing into `.elements` directly:
+- `.first` — first matched node, still wrapped in a collection.
+- `.at(index)` — a specific node, wrapped.
+- `.get(selector)` — queries each matched node and its shadow root (if any), returns another collection.
+- `.click()` / `.submit()` — act on the first matched node.
+- `.value` / `.checked` / `.textContent` (getters and setters) — read/write on the first matched node.
+- `.host` — the underlying custom element instance, for reaching `.state`, `.shadowRoot`, `.internals`, etc. directly.
+- `.flush()` — instance-scoped shorthand for the module-level `flushEffects()`.
+
+**`flushEffects()`/`.flush()` timing**: it awaits two microtask turns plus a `setTimeout(..., 0)`. Any `fetch` (or other async work) started inside `script()` will typically resolve by the *first* `flush()` if its mock resolves immediately — so don't rely on a `setTimeout`/delayed toggle to keep a "loading" state alive across a flush in tests; it will usually be consumed. Prefer deterministic mocks over open-ended `await new Promise(...)`/polling loops in tests.
+
+**Mocking `fetch`**: `setupDomStubs()` installs a `fetch` stub on `globalThis.fetch` with `addRoute(urlSubstring, payload)`, `resetRoutes()`, `getCalls()`, and `resetCalls()` — route by a substring match against the request URL rather than mocking your own service layer.
+
+```js
+globalThis.fetch.addRoute("/api/data", { items: [{ name: "x" }] });
+// ...render + flush...
+assert.equal(globalThis.fetch.getCalls().length, 1);
+```
+
+## Anti-patterns (things that look reasonable but aren't)
+
+- Reassigning `state = {...}` instead of mutating keys — breaks the reactivity proxy.
+- Passing `onClick`/camelCase event names — use plain DOM event names.
+- Rebuilding light-DOM content that `children()`/`childElements()` already gives you for free.
+- Relying on a bare `<style>`/`<link>` in the page to style a component — it won't cross the shadow boundary; use `css`, `data-pfusch`, or `inject-styles`/`inject-links`.
+- Interpolating dynamic/per-instance values into a `` css`...` `` template.
+- Using `toElement()` inside a template function — return descriptors instead and let pfusch patch them.
+- Calling `html.element(...)` expecting a generic container — it builds a literal `<element>` tag; use `html.div`/`html.span`.
+- `html.slot() || fallback` to show fallback content when nothing is slotted — the descriptor is always truthy, so the fallback branch never runs.
+- Passing a raw DOM event to `trigger(name, e)` — pass a plain, serializable object instead.
+
+## Full source (ground truth)
+
+`pfusch.js`, current as of this doc:
+
+```js
 const s = 'string', o = 'object', jstr = JSON.stringify, cssCache = new Map();
 // Standard HTML boolean attributes: a boolean value here means presence/absence, not the string "true"/"false".
 // This deliberately excludes aria-* (aria-hidden, aria-expanded, ...), which require the literal string.
@@ -168,3 +338,4 @@ export function pfusch(tagName, initialState, template) {
     customElements.define(tagName, Pfusch);
     return Pfusch;
 }
+```
