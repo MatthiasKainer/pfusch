@@ -5,6 +5,7 @@
   "scripts": {
     "build": "npm test && npm run e2e:test && bash scripts/build.sh",
     "test": "node --test",
+    "perf:test": "node performance/huge-state.bench.js",
     "e2e:test": "cd e2e && npm i && npm test"
   }
 }

@@ -69,7 +69,7 @@ export function pfusch(tagName, initialState, template) {
         constructor() {
             super();
             this.#internals = this.attachInternals();
-            this._f = INIT; this._subs = {}; this._cleanups = [];
+            this._f = INIT; this._subs = {}; this._cleanups = []; this._version = 0; this._renderedVersion = -1;
             this._disconnectPending = false;
             this.lightDOMChildren = Array.from(this.children);
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
@@ -78,8 +78,8 @@ export function pfusch(tagName, initialState, template) {
             this._raw = copyState(initialState);
             for (const k of Object.keys(initialState)) { let v = null; for (const attrName of attrNames(k)) if ((v = this.getAttribute(attrName)) !== null) break; if (v !== null) this._raw[k] = toStateValue(k, v); }
             this.state = new Proxy(this._raw, {
-                set: (target, key, value) => { if (target[key] !== value) { if (key !== "subscribe" && !(key in target)) console.warn(`pfusch: <${tagName}> set state.${key}, which isn't in initialState — check for a typo`); target[key] = value; if (key !== "subscribe" && !(this._f & INIT)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
-                get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : target[key]
+                set: (target, key, value) => { if (target[key] !== value) { if (key !== "subscribe" && key !== "mutate" && !(key in target)) console.warn(`pfusch: <${tagName}> set state.${key}, which isn't in initialState — check for a typo`); target[key] = value; this._version++; if (key !== "subscribe" && key !== "mutate" && !(this._f & INIT)) this.scheduleRender(); (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
+                get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : key === 'mutate' ? fn => { if (typeof fn !== 'function') return; const version = this._version; let result; try { result = fn(this.state); } catch (e) { console.error('Mutation error:', e); } if (version === this._version) { this._version++; if (!(this._f & INIT)) this.scheduleRender(); Object.entries(this._subs).forEach(([k, cbs]) => cbs.forEach(cb => { try { cb(target[k]); } catch { } })); } return result; } : target[key]
             });
         }
 
@@ -94,8 +94,8 @@ export function pfusch(tagName, initialState, template) {
             if (this._f & RENDERING) { this._f |= NEEDS_RERENDER; return; }
             this._f |= RENDERING;
             try {
-              const snap = jstr(this._raw);
-              if (!force && snap === this._snap) { this._f &= ~(QUEUED|NEEDS_RERENDER); return; }
+              const version = this._version;
+              if (!force && version === this._renderedVersion) { this._f &= ~(QUEUED|NEEDS_RERENDER); return; }
               if (!this.lightDOMChildren.length) this.lightDOMChildren = Array.from(this.children), this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
               const trigger = (eventName, detail) => { const full = `${tagName}.${eventName}`;[full, eventName].forEach(e => this.dispatchEvent(new CustomEvent(e, { detail, bubbles: true, composed: true }))); let data; try { data = jstr(detail); } catch { data = null; } window.postMessage({ eventName: full, detail: { sourceId: this.id, data } }, "*"); };
               const children = sel => sel ? this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === sel.toLowerCase() || c.matches?.(sel)) : this.lightDOMChildren;
@@ -115,14 +115,14 @@ export function pfusch(tagName, initialState, template) {
               result.forEach(item => {
                   if (item == null || item === false) return;
                   if (item.type === 'style') { const sheet = item.content(); if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]; }
-                  else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { const cleanup = item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); if (typeof cleanup === 'function') this._cleanups.push(cleanup); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
+                  else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._renderedVersion = -1; this.render(); }); return; } try { const cleanup = item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); if (typeof cleanup === 'function') this._cleanups.push(cleanup); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
                   else if (Array.isArray(item)) processItem(item);
                   else processItem(item);
               });
 
               this.syncChildren(this.shadowRoot, elementItems.filter(e => (e._t || e._el?.tagName || '').toUpperCase() !== 'LINK'));
               if (focusId) requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
-              this.#internals.setFormValue(this._snap = (this._f & NEEDS_RERENDER ? jstr(this._raw) : snap));
+              this._renderedVersion = version; if (!(this._f & NEEDS_RERENDER) && this.hasAttribute('name')) this.#internals.setFormValue(jstr(this._raw));
               this._f &= ~RENDERING; if (this._f & QUEUED) this._f &= ~QUEUED; if (this._f & NEEDS_RERENDER) { this._f &= ~NEEDS_RERENDER; this.render(true); }
             } catch (e) { console.error(`pfusch: <${tagName}> render error:`, e); }
             finally { this._f &= ~(RENDERING|QUEUED); }

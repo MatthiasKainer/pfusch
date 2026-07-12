@@ -254,7 +254,7 @@ class FakeElement {
     if (!this._internals) {
       this._internals = {
         _element: this,
-        setFormValue(v) {},
+        setFormValue(v) { this.formValue = v; },
         setValidity(flags, message) {
            this.flags = flags || {};
            this.validationMessage = message || '';

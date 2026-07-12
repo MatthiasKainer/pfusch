@@ -242,6 +242,66 @@ test('component instances do not share mutable initial state', () => {
   assert.equal(second.state.profile.name, 'initial');
 });
 
+test('state.mutate renders nested mutations and notifies subscribers', async () => {
+  const notifications = [];
+  pfusch('test-nested-mutate', { items: [], profile: { name: 'initial' } }, (state) => [
+    html.div(`${state.items.length}:${state.profile.name}`)
+  ]);
+  const widget = pfuschTest('test-nested-mutate');
+  const stopItems = widget.host.state.subscribe('items', value => notifications.push(['items', value.length]));
+  const stopProfile = widget.host.state.subscribe('profile', value => notifications.push(['profile', value.name]));
+  notifications.length = 0;
+
+  widget.host.state.mutate(state => {
+    state.items.push('new');
+    state.profile.name = 'changed';
+  });
+  await widget.flush();
+
+  assert.equal(widget.get('div').textContent, '1:changed');
+  assert.deepEqual(notifications, [['items', 1], ['profile', 'changed']]);
+  stopItems();
+  stopProfile();
+});
+
+test('state.mutate does not duplicate precise notifications for top-level assignments', async () => {
+  const notifications = [];
+  pfusch('test-top-level-mutate', { count: 0 }, state => [html.div(String(state.count))]);
+  const widget = pfuschTest('test-top-level-mutate');
+  const stop = widget.host.state.subscribe('count', value => notifications.push(value));
+  notifications.length = 0;
+
+  widget.host.state.mutate(state => { state.count++; });
+  await widget.flush();
+
+  assert.deepEqual(notifications, [1]);
+  assert.equal(widget.get('div').textContent, '1');
+  stop();
+});
+
+test('unnamed components do not serialize their complete state as a form value', async () => {
+  pfusch('test-unnamed-form-value', { count: 0, unsupportedByJson: 1n }, state => [
+    html.div(String(state.count))
+  ]);
+  const widget = pfuschTest('test-unnamed-form-value');
+  widget.host.state.count++;
+  await widget.flush();
+
+  assert.equal(widget.get('div').textContent, '1');
+  assert.equal(widget.host.internals.formValue, undefined);
+});
+
+test('named components preserve complete-state form serialization', async () => {
+  pfusch('test-named-form-value', { count: 0, data: { id: 7 } }, state => [
+    html.div(String(state.count))
+  ]);
+  const widget = pfuschTest('test-named-form-value', { name: 'payload' });
+  widget.host.state.count++;
+  await widget.flush();
+
+  assert.equal(widget.host.internals.formValue, JSON.stringify({ count: 1, data: { id: 7 } }));
+});
+
 test('pfusch scripts run before template-owned DOM is synchronized', () => {
   let foundDuringScript = true;
   pfusch('test-script-timing', {}, () => [

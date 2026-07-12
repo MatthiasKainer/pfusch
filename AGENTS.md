@@ -6,8 +6,8 @@ pfusch is a ~170-line zero-dependency web component library (`pfusch.js`, no bui
 
 - `pfusch(tagName, initialState, template)` registers a custom element. `template(state, trigger, helpers)` returns an array of things to render: `html.*` descriptors, real DOM nodes, strings, `css` results, `script(...)` calls, or `null`/nested arrays (falsy entries are skipped).
 - There is no virtual DOM diffing. pfusch patches only the specific attributes/children that changed (`syncChildren` in the source).
-- State is a `Proxy` over a plain object. Assign declared top-level keys directly (`state.count++`). Nested mutations such as `state.items.push(x)` are not observed; replace that top-level value (`state.items = [...state.items, x]`) to render. Updates are batched onto the next microtask.
-- Declared state keys automatically become observed HTML attributes (in camelCase, lowercase, and kebab-case forms) — attributes drive state, state changes reflect back as the form-associated value. `pfusch` components are `formAssociated`, so they participate in real `<form>` submission.
+- State is a `Proxy` over a plain object. Assign declared top-level keys directly (`state.count++`). Wrap synchronous nested changes in `state.mutate(state => state.items.push(x))`; it schedules one render without deep proxies. Updates are batched onto the next microtask.
+- Declared state keys automatically become observed HTML attributes (in camelCase, lowercase, and kebab-case forms). Components are `formAssociated`; those with a `name` submit the complete JSON state, while unnamed components skip form serialization.
 - Progressive enhancement is the intended default: write real HTML inside the custom element's tag, then read/keep it via the `children`/`childElements` helper instead of rebuilding it from scratch.
 
 ## Quick start
@@ -55,7 +55,7 @@ These are the things that don't fall out of reading the API — get them wrong a
 5. **`as="lazy"` defers the first render.** A component with that attribute renders nothing until `as` changes away from `"lazy"` (or is removed) — e.g. via an `IntersectionObserver`. Don't declare a state key named `as`, `id`, `inject-styles`, or `inject-links` — those attribute names are reserved by pfusch itself and are special-cased before the normal state-attribute mapping.
 6. **`inject-styles` / `inject-links` override the defaults.** By default, every component pulls in `document.querySelectorAll('style[data-pfusch]')` and `link[data-pfusch]` into its shadow root once, on first render. Set those attributes on the component tag to point at a different selector instead. External page CSS never penetrates the shadow DOM otherwise — use `css` or one of these two mechanisms, not a bare `<style>`/`<link>` with no `data-pfusch` attribute.
 7. **`helpers.children()` returns real, live DOM elements**, not descriptors — you can call `.querySelector`, mutate `.classList`, add listeners, etc. directly on them, and return them as-is in the template array. Don't try to convert them to `html.*` calls first.
-8. **This is not React.** No virtual DOM and no `useEffect`. Assign declared top-level `state.*` keys directly; nested mutations are not reactive. Use `script(...)` + `state.subscribe(key, cb)` for effect-like behavior and return the unsubscribe function for cleanup; event handler keys are plain DOM event names (`click`, not `onClick`).
+8. **This is not React.** No virtual DOM and no `useEffect`. Assign declared top-level `state.*` keys directly; use synchronous `state.mutate(fn)` for nested changes. Nested-only mutation notifies all subscribers because pfusch does not install deep proxies. Use `script(...)` + `state.subscribe(key, cb)` for effect-like behavior and return the unsubscribe function for cleanup; event handler keys are plain DOM event names (`click`, not `onClick`).
 9. **`.element`** on any descriptor is an escape hatch (`setAttribute`/`classList`/`innerHTML`-like proxy over the descriptor's internals) for imperatively mutating a descriptor across multiple statements before returning it. Prefer passing everything through the attrs object or `html.raw` for one-shot cases; reach for `.element` only when you're building a descriptor up incrementally. **Don't confuse this with rule 10.**
 10. **`html.element(...)` is not a thing — and won't tell you that.** `html` is an unguarded `Proxy` over tag names, so `html.element(...)` doesn't throw; it silently builds a descriptor for a literal, non-standard `<element>` tag. There is no generic "element" constructor. If you want a plain container, use `html.div(...)`/`html.span(...)`. (This is unrelated to the `.element` *getter* in rule 9 — same word, two unrelated APIs.)
 11. **Never pass a raw `Event`/`MouseEvent` object as `trigger()`'s `detail`.** `trigger` JSON-stringifies `detail` for the `postMessage` broadcast; a DOM event contains circular references. That stringify is wrapped in a try/catch, so it won't throw — but it silently falls back to `data: null`, so any `postMessage` listener gets nothing. (The native `CustomEvent` listener path still gets the live object, circular refs and all — the two delivery paths can end up carrying completely different payloads for the same `trigger()` call.) Pass plain data instead: `trigger("clicked", { value: state.value })`, not `trigger("clicked", e)`.
@@ -243,7 +243,7 @@ export function pfusch(tagName, initialState, template) {
         constructor() {
             super();
             this.#internals = this.attachInternals();
-            this._f = INIT; this._subs = {}; this._cleanups = [];
+            this._f = INIT; this._subs = {}; this._cleanups = []; this._version = 0; this._renderedVersion = -1;
             this._disconnectPending = false;
             this.lightDOMChildren = Array.from(this.children);
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
@@ -252,8 +252,8 @@ export function pfusch(tagName, initialState, template) {
             this._raw = copyState(initialState);
             for (const k of Object.keys(initialState)) { let v = null; for (const attrName of attrNames(k)) if ((v = this.getAttribute(attrName)) !== null) break; if (v !== null) this._raw[k] = toStateValue(k, v); }
             this.state = new Proxy(this._raw, {
-                set: (target, key, value) => { if (target[key] !== value) { if (key !== "subscribe" && !(key in target)) console.warn(`pfusch: <${tagName}> set state.${key}, which isn't in initialState — check for a typo`); target[key] = value; if (key !== "subscribe" && !(this._f & INIT)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
-                get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : target[key]
+                set: (target, key, value) => { if (target[key] !== value) { if (key !== "subscribe" && key !== "mutate" && !(key in target)) console.warn(`pfusch: <${tagName}> set state.${key}, which isn't in initialState — check for a typo`); target[key] = value; this._version++; if (key !== "subscribe" && key !== "mutate" && !(this._f & INIT)) this.scheduleRender(); (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
+                get: (target, key) => key === 'subscribe' ? (prop, cb) => { (this._subs[prop] ??= []).push(cb); try { cb(target[prop]); } catch { } return () => { const a = this._subs[prop]; if (a) this._subs[prop] = a.filter(f => f !== cb); }; } : key === 'mutate' ? fn => { if (typeof fn !== 'function') return; const version = this._version; let result; try { result = fn(this.state); } catch (e) { console.error('Mutation error:', e); } if (version === this._version) { this._version++; if (!(this._f & INIT)) this.scheduleRender(); Object.entries(this._subs).forEach(([k, cbs]) => cbs.forEach(cb => { try { cb(target[k]); } catch { } })); } return result; } : target[key]
             });
         }
 
@@ -266,8 +266,8 @@ export function pfusch(tagName, initialState, template) {
         render(force = false) {
             if (!template) return;
             if (this._f & RENDERING) { this._f |= NEEDS_RERENDER; return; }
-            const snap = jstr(this._raw);
-            if (!force && snap === this._snap) { this._f &= ~(QUEUED|NEEDS_RERENDER); return; }
+            const version = this._version;
+            if (!force && version === this._renderedVersion) { this._f &= ~(QUEUED|NEEDS_RERENDER); return; }
             this._f |= RENDERING;
             if (!this.lightDOMChildren.length) this.lightDOMChildren = Array.from(this.children), this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             const trigger = (eventName, detail) => { const full = `${tagName}.${eventName}`;[full, eventName].forEach(e => this.dispatchEvent(new CustomEvent(e, { detail, bubbles: true, composed: true }))); let data; try { data = jstr(detail); } catch { data = null; } window.postMessage({ eventName: full, detail: { sourceId: this.id, data } }, "*"); };
@@ -288,14 +288,14 @@ export function pfusch(tagName, initialState, template) {
             result.forEach(item => {
                 if (!item) return;
                 if (item.type === 'style') { const sheet = item.content(); if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]; }
-                else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { const cleanup = item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); if (typeof cleanup === 'function') this._cleanups.push(cleanup); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
+                else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._renderedVersion = -1; this.render(); }); return; } try { const cleanup = item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); if (typeof cleanup === 'function') this._cleanups.push(cleanup); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
                 else if (Array.isArray(item)) item.forEach(processItem);
                 else processItem(item);
             });
 
             this.syncChildren(this.shadowRoot, elementItems.filter(e => (e._t || e._el?.tagName || '').toUpperCase() !== 'LINK'));
             if (focusId) requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
-            this.#internals.setFormValue(this._snap = (this._f & NEEDS_RERENDER ? jstr(this._raw) : snap));
+            this._renderedVersion = version; if (!(this._f & NEEDS_RERENDER) && this.hasAttribute('name')) this.#internals.setFormValue(jstr(this._raw));
             this._f &= ~RENDERING; if (this._f & QUEUED) this._f &= ~QUEUED; if (this._f & NEEDS_RERENDER) { this._f &= ~NEEDS_RERENDER; this.render(true); }
         }
 

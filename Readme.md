@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-170-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-12K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.4K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-170-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-12K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.5K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -531,8 +531,18 @@ pfusch(
 3. **Event triggering:** `trigger("clicked", data)` → fires `my-counter.clicked` globally
 4. **Light DOM access:** `helpers.children()` → access original HTML content
 5. **State subscription:** `state.subscribe('key', callback)` → react to changes
+6. **Nested mutation batch:** `state.mutate(state => state.items.push(item))` → mutate nested data and render once
 
-State reactivity observes assignments to declared top-level keys. Replace arrays or nested objects after changing them (`state.items = [...state.items, item]`); mutations such as `state.items.push(item)` are not observed.
+State reactivity observes assignments to declared top-level keys. Use `state.mutate(...)` for synchronous nested changes:
+
+```js
+state.mutate(state => {
+  state.items.push(item);
+  state.profile.updatedAt = Date.now();
+});
+```
+
+Nested-only mutation notifies every state subscriber because pfusch deliberately avoids deep proxies and cannot cheaply identify which aliases changed. A top-level assignment inside `mutate()` keeps its normal precise notification. Components without a `name` attribute no longer serialize their complete state after every render; named form controls retain complete-state JSON submission for compatibility.
 
 `script()` runs once per connected lifecycle and may return a cleanup function. Cleanup runs after a genuine disconnection; reconnecting the same instance runs the script again. Brief disconnects caused by moving an element in the DOM do not restart it. A script runs before elements returned by the template are synchronized into the shadow root. Use declarative event attributes for template-owned elements and return cleanup for external subscriptions:
 
