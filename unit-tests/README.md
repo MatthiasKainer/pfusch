@@ -10,7 +10,7 @@
   const { restore } = setupDomStubs();
   pfusch('my-widget', {}, () => [html.div('hi')]);
   ```
-- Import browser-facing modules that pull pfusch from the CDN with `import_for_test(modulePath, pfuschPath)`. Paths are resolved relative to the calling test file (fallback to CWD/module path). If `pfuschPath` is omitted, `import_for_test` downloads `https://matthiaskainer.github.io/pfusch/pfusch.js` to a temp file and uses that as a fallback. It rewrites the CDN import to a local file before loading, then deletes the temporary shim file. You can also pass an options object `{ pfuschPath, replacements }` or a third `replacements` argument. Each replacement is `{ pattern, replacement }` and is applied to the module source before import (handy for swapping relative imports to mocks in tests):
+- Import browser-facing modules that pull pfusch from the CDN with `import_for_test(modulePath, pfuschPath)`. Paths are resolved relative to the calling test file (fallback to CWD/module path). If `pfuschPath` is omitted, `import_for_test` uses the repository's local `pfusch.js`, so tests remain offline and exercise the checked-out source. It rewrites the CDN import to a local file before loading, then deletes the temporary shim file. You can also pass an options object `{ pfuschPath, replacements }` or a third `replacements` argument. Each replacement is `{ pattern, replacement }` and is applied to the module source before import (handy for swapping relative imports to mocks in tests):
   ```js
   import { setupDomStubs, import_for_test } from './pfusch-stubs.js';
 

@@ -6,7 +6,7 @@ pfusch is a ~170-line zero-dependency web component library (`pfusch.js`, no bui
 
 - `pfusch(tagName, initialState, template)` registers a custom element. `template(state, trigger, helpers)` returns an array of things to render: `html.*` descriptors, real DOM nodes, strings, `css` results, `script(...)` calls, or `null`/nested arrays (falsy entries are skipped).
 - There is no virtual DOM diffing. pfusch patches only the specific attributes/children that changed (`syncChildren` in the source).
-- State is a `Proxy` over a plain object. **Mutate it directly** (`state.count++`), don't replace it or treat it as immutable. Every mutation schedules a re-render on the next microtask (batched — many mutations in one tick still render once).
+- State is a `Proxy` over a plain object. Assign declared top-level keys directly (`state.count++`). Nested mutations such as `state.items.push(x)` are not observed; replace that top-level value (`state.items = [...state.items, x]`) to render. Updates are batched onto the next microtask.
 - Declared state keys automatically become observed HTML attributes (in camelCase, lowercase, and kebab-case forms) — attributes drive state, state changes reflect back as the form-associated value. `pfusch` components are `formAssociated`, so they participate in real `<form>` submission.
 - Progressive enhancement is the intended default: write real HTML inside the custom element's tag, then read/keep it via the `children`/`childElements` helper instead of rebuilding it from scratch.
 
@@ -36,7 +36,7 @@ pfusch("live-counter", { count: 0 }, (state) => [
 | `html` | `html.div(...)`, `html["my-tag"](...)` | Proxy that builds descriptors: `{ _t, _a, _c, _re }` (tag, attrs, children, event handlers). Never real DOM until pfusch patches it in. First object argument = attrs/events, everything else = children. Also supports tagged-template calls: `` html.h2`Hello ${x}` ``. |
 | `html.raw` | `` html.raw`<b>...</b>` `` | Raw HTML string as a child (sets `innerHTML`, bypasses descriptor diffing for that subtree). |
 | `css` | `` css`...` `` | Returns `{ type: 'style', content() }`; adopted into the component's shadow root. Cached globally by rendered text — **keep the template literal static**, don't interpolate per-instance values into it. |
-| `script` | `(fn) => { type: 'script', content: fn }` | Runs `fn` once per component instance, after first render, with `this` bound to `{ component, shadowRoot, state, addEventListener, querySelector, querySelectorAll }`. Good for one-time setup: subscriptions, event listeners on light DOM, fetches. |
+| `script` | `(fn) => { type: 'script', content: fn }` | Runs `fn` once per connected lifecycle with `this` bound to `{ component, shadowRoot, state, addEventListener, querySelector, querySelectorAll }`. It may return a cleanup function, which runs after disconnection; reconnecting runs `fn` again. |
 | `toElement` | `(descriptor) => HTMLElement` | Materializes a descriptor into a real DOM node, recursively. Only use it **outside** a render cycle (standalone utilities, tests, imperative code) — inside a template, return descriptors and let pfusch patch them. |
 
 **Template function signature:** `(state, trigger, helpers) => [...]`
@@ -55,12 +55,12 @@ These are the things that don't fall out of reading the API — get them wrong a
 5. **`as="lazy"` defers the first render.** A component with that attribute renders nothing until `as` changes away from `"lazy"` (or is removed) — e.g. via an `IntersectionObserver`. Don't declare a state key named `as`, `id`, `inject-styles`, or `inject-links` — those attribute names are reserved by pfusch itself and are special-cased before the normal state-attribute mapping.
 6. **`inject-styles` / `inject-links` override the defaults.** By default, every component pulls in `document.querySelectorAll('style[data-pfusch]')` and `link[data-pfusch]` into its shadow root once, on first render. Set those attributes on the component tag to point at a different selector instead. External page CSS never penetrates the shadow DOM otherwise — use `css` or one of these two mechanisms, not a bare `<style>`/`<link>` with no `data-pfusch` attribute.
 7. **`helpers.children()` returns real, live DOM elements**, not descriptors — you can call `.querySelector`, mutate `.classList`, add listeners, etc. directly on them, and return them as-is in the template array. Don't try to convert them to `html.*` calls first.
-8. **This is not React.** No virtual DOM, no immutable state, no `useEffect`. Mutate `state.*` directly; use `script(...)` + `state.subscribe(key, cb)` for effect-like behavior; event handler keys are plain DOM event names (`click`, not `onClick`).
+8. **This is not React.** No virtual DOM and no `useEffect`. Assign declared top-level `state.*` keys directly; nested mutations are not reactive. Use `script(...)` + `state.subscribe(key, cb)` for effect-like behavior and return the unsubscribe function for cleanup; event handler keys are plain DOM event names (`click`, not `onClick`).
 9. **`.element`** on any descriptor is an escape hatch (`setAttribute`/`classList`/`innerHTML`-like proxy over the descriptor's internals) for imperatively mutating a descriptor across multiple statements before returning it. Prefer passing everything through the attrs object or `html.raw` for one-shot cases; reach for `.element` only when you're building a descriptor up incrementally. **Don't confuse this with rule 10.**
 10. **`html.element(...)` is not a thing — and won't tell you that.** `html` is an unguarded `Proxy` over tag names, so `html.element(...)` doesn't throw; it silently builds a descriptor for a literal, non-standard `<element>` tag. There is no generic "element" constructor. If you want a plain container, use `html.div(...)`/`html.span(...)`. (This is unrelated to the `.element` *getter* in rule 9 — same word, two unrelated APIs.)
 11. **Never pass a raw `Event`/`MouseEvent` object as `trigger()`'s `detail`.** `trigger` JSON-stringifies `detail` for the `postMessage` broadcast; a DOM event contains circular references. That stringify is wrapped in a try/catch, so it won't throw — but it silently falls back to `data: null`, so any `postMessage` listener gets nothing. (The native `CustomEvent` listener path still gets the live object, circular refs and all — the two delivery paths can end up carrying completely different payloads for the same `trigger()` call.) Pass plain data instead: `trigger("clicked", { value: state.value })`, not `trigger("clicked", e)`.
 12. **`html.slot() || fallback` never falls back.** Every `html.*` call returns an object, and objects are always truthy — `||` will pick `html.slot()` unconditionally regardless of whether anything is actually slotted in. Gate on an explicit condition instead: `hasContent ? html.slot() : fallbackUi`. Also treat `helpers.children()`/`childElements()` as a one-time snapshot of the light DOM taken around first render, not a live subscription to nodes appended later.
-13. **Prefer declarative event binding for elements the template itself renders**: `html.button({ click: fn })`, not `this.querySelector(...).addEventListener(...)` inside `script()`. `script()` runs once, during render, and its timing relative to node placement isn't something to rely on for elements pfusch owns. Reserve manual `addEventListener` inside `script()` for things pfusch doesn't render — light-DOM elements from `children()`, `window`, `document`, or third-party widgets.
+13. **Prefer declarative event binding for elements the template itself renders**: `html.button({ click: fn })`, not `this.querySelector(...).addEventListener(...)` inside `script()`. `script()` runs once per connected lifecycle, during render, and its timing relative to node placement isn't something to rely on for elements pfusch owns. Reserve manual listeners for light DOM, `window`, `document`, or third-party widgets, and return a function that removes them.
 
 ## Canonical patterns
 
@@ -179,6 +179,7 @@ const isBoolAttrValue = (key, value) => boolAttrSet.has(key) && typeof value ===
 // _f bitflags (kept as a single field to stay small after minification):
 const SCRIPTS_EXEC = 1, STYLES_INJECTED = 2, LINKS_CLONED = 4, RENDERING = 8, NEEDS_RERENDER = 16, INIT = 32, QUEUED = 64;
 const attrNames = k => [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCase()];
+const copyState = v => Array.isArray(v) ? v.map(copyState) : v && Object.getPrototypeOf(v) === Object.prototype ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, copyState(x)])) : v;
 
 // cssCache is unbounded and keyed by the rendered CSS text — fine for the intended use (static css`` templates
 // shared across instances), but avoid interpolating per-instance/dynamic values into a css`` template.
@@ -242,13 +243,13 @@ export function pfusch(tagName, initialState, template) {
         constructor() {
             super();
             this.#internals = this.attachInternals();
-            this._f = INIT; this._subs = {};
+            this._f = INIT; this._subs = {}; this._cleanups = [];
             this._disconnectPending = false;
             this.lightDOMChildren = Array.from(this.children);
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             this._lightDomRetryDone = false;
             this.attachShadow({ mode: 'open', serializable: true });
-            this._raw = { ...initialState };
+            this._raw = copyState(initialState);
             for (const k of Object.keys(initialState)) { let v = null; for (const attrName of attrNames(k)) if ((v = this.getAttribute(attrName)) !== null) break; if (v !== null) this._raw[k] = toStateValue(k, v); }
             this.state = new Proxy(this._raw, {
                 set: (target, key, value) => { if (target[key] !== value) { if (key !== "subscribe" && !(key in target)) console.warn(`pfusch: <${tagName}> set state.${key}, which isn't in initialState — check for a typo`); target[key] = value; if (key !== "subscribe" && !(this._f & INIT)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
@@ -256,8 +257,8 @@ export function pfusch(tagName, initialState, template) {
             });
         }
 
-        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render(); } }
-        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
+        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy') this.render(); } else if (!(this._f & SCRIPTS_EXEC)) this.render(true); }
+        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this._cleanups.splice(0).forEach(fn => { try { fn(); } catch (e) { console.error('Cleanup error:', e); } }); this._f &= ~SCRIPTS_EXEC; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
         getStableId(tag, pos) { return `${tag.toLowerCase()}-${pos}`; }
 
         attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = toStateValue(key, newValue); }
@@ -287,7 +288,7 @@ export function pfusch(tagName, initialState, template) {
             result.forEach(item => {
                 if (!item) return;
                 if (item.type === 'style') { const sheet = item.content(); if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]; }
-                else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
+                else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { const cleanup = item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); if (typeof cleanup === 'function') this._cleanups.push(cleanup); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
                 else if (Array.isArray(item)) item.forEach(processItem);
                 else processItem(item);
             });

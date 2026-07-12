@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { match } from 'node:assert';
@@ -934,36 +933,10 @@ const findCallerFile = () => {
   return null;
 };
 
-const PFUSCH_REMOTE_URL = new URL('https://matthiaskainer.github.io/pfusch/pfusch.js');
 const PFUSCH_CDN_RE = /(['"])(?:https:\/\/matthiaskainer\.github\.io\/pfusch\/pfusch(?:\.min)?\.js|\.\/pfusch\.js)\1/g;
 const pfuschImportCache = new Map();
 let pfuschImportEpoch = 0;
-const pfuschRemoteHash = createHash('sha1').update(PFUSCH_REMOTE_URL.href).digest('hex').slice(0, 8);
-const pfuschRemotePath = path.join(os.tmpdir(), `pfusch.remote.${pfuschRemoteHash}.js`);
-let pfuschRemotePromise = null;
-
-const ensureRemotePfusch = async () => {
-  if (pfuschRemotePromise) return pfuschRemotePromise;
-  if (fs.existsSync(pfuschRemotePath)) return pathToFileURL(pfuschRemotePath);
-  pfuschRemotePromise = (async () => {
-    if (typeof original.fetch !== 'function') {
-      throw new Error('import_for_test requires global fetch to download pfusch when no pfuschPath is provided');
-    }
-    const response = await original.fetch(PFUSCH_REMOTE_URL.href);
-    if (!response.ok) {
-      throw new Error(`import_for_test failed to download pfusch from ${PFUSCH_REMOTE_URL.href} (status ${response.status})`);
-    }
-    const source = await response.text();
-    const tempPath = `${pfuschRemotePath}.tmp`;
-    await fs.promises.writeFile(tempPath, source, 'utf8');
-    await fs.promises.rename(tempPath, pfuschRemotePath);
-    return pathToFileURL(pfuschRemotePath);
-  })().catch(err => {
-    pfuschRemotePromise = null;
-    throw err;
-  });
-  return pfuschRemotePromise;
-};
+const LOCAL_PFUSCH_URL = new URL('../pfusch.js', import.meta.url);
 
 const resolveFileUrl = (specifier, parentFilePath) => {
   if (specifier instanceof URL) return specifier;
@@ -1164,7 +1137,7 @@ export async function import_for_test(modulePath, pfuschPathOrOptions = null, ex
 
   let pfuschUrl;
   if (pfuschPath == null) {
-    pfuschUrl = await ensureRemotePfusch();
+    pfuschUrl = LOCAL_PFUSCH_URL;
   } else {
     pfuschUrl = resolveFileUrl(pfuschPath, caller);
     if (pfuschUrl.protocol === 'file:' && !fs.existsSync(fileURLToPath(pfuschUrl))) {

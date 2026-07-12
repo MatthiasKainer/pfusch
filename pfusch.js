@@ -9,6 +9,7 @@ const isBoolAttrValue = (key, value) => boolAttrSet.has(key) && typeof value ===
 // _f bitflags (kept as a single field to stay small after minification):
 const SCRIPTS_EXEC = 1, STYLES_INJECTED = 2, LINKS_CLONED = 4, RENDERING = 8, NEEDS_RERENDER = 16, INIT = 32, QUEUED = 64;
 const attrNames = k => [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCase()];
+const copyState = v => Array.isArray(v) ? v.map(copyState) : v && Object.getPrototypeOf(v) === Object.prototype ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, copyState(x)])) : v;
 
 // cssCache is unbounded and keyed by the rendered CSS text — fine for the intended use (static css`` templates
 // shared across instances), but avoid interpolating per-instance/dynamic values into a css`` template.
@@ -68,13 +69,13 @@ export function pfusch(tagName, initialState, template) {
         constructor() {
             super();
             this.#internals = this.attachInternals();
-            this._f = INIT; this._subs = {};
+            this._f = INIT; this._subs = {}; this._cleanups = [];
             this._disconnectPending = false;
             this.lightDOMChildren = Array.from(this.children);
             this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
             this._lightDomRetryDone = false;
             this.attachShadow({ mode: 'open', serializable: true });
-            this._raw = { ...initialState };
+            this._raw = copyState(initialState);
             for (const k of Object.keys(initialState)) { let v = null; for (const attrName of attrNames(k)) if ((v = this.getAttribute(attrName)) !== null) break; if (v !== null) this._raw[k] = toStateValue(k, v); }
             this.state = new Proxy(this._raw, {
                 set: (target, key, value) => { if (target[key] !== value) { if (key !== "subscribe" && !(key in target)) console.warn(`pfusch: <${tagName}> set state.${key}, which isn't in initialState — check for a typo`); target[key] = value; if (key !== "subscribe" && !(this._f & INIT)) { this.scheduleRender(); } (this._subs[key] || []).forEach(cb => cb(value)); } return true; },
@@ -82,8 +83,8 @@ export function pfusch(tagName, initialState, template) {
             });
         }
 
-        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy') this.render(); } }
-        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
+        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy') this.render(); } else if (!(this._f & SCRIPTS_EXEC)) this.render(true); }
+        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this._cleanups.splice(0).forEach(fn => { try { fn(); } catch (e) { console.error('Cleanup error:', e); } }); this._f &= ~SCRIPTS_EXEC; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
         getStableId(tag, pos) { return `${tag.toLowerCase()}-${pos}`; }
 
         attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = toStateValue(key, newValue); }
@@ -114,7 +115,7 @@ export function pfusch(tagName, initialState, template) {
               result.forEach(item => {
                   if (item == null || item === false) return;
                   if (item.type === 'style') { const sheet = item.content(); if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]; }
-                  else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
+                  else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { const cleanup = item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); if (typeof cleanup === 'function') this._cleanups.push(cleanup); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
                   else if (Array.isArray(item)) processItem(item);
                   else processItem(item);
               });

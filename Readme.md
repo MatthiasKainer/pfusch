@@ -1,20 +1,20 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-169-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-12K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.3K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-170-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-12K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.4K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
-**Pfusch is a super-minimal web component library for rapid prototyping and progressive enhancement.** No npm. No bundler. No build step. No fighting with tooling. Just HTML, JavaScript, and results in minutes.
+**Pfusch is a super-minimal web component library for progressive enhancement and small interactive interfaces.** Applications can use it directly in the browser: no package installation, bundler, or application build step required.
 
 ## Why Pfusch?
 
 - **Instant Setup**: Drop a script tag in your HTML and start building
 - **Progressive Enhancement**: Write semantic HTML first, enhance with interactivity where needed
 - **Design System Integration**: Works out-of-the-box with your existing CSS and design tokens
-- **Prototype to Production**: Go from idea to interactive prototype faster than you can say "npm install"
-- **Zero Dependencies**: No package.json, no node_modules, no build pipeline
+- **Small by Design**: A focused runtime for prototypes, internal tools, and contained production enhancements
+- **Zero Runtime Dependencies**: Use the published module directly or keep a local copy
 
-Pfusch is perfect for quick prototypes, internal tools, interactive documentation, and projects where you want to enhance static HTML without downloading the internet.
+Pfusch is a good fit for quick prototypes, internal tools, interactive documentation, and projects that enhance useful static HTML. For application-wide routing, complex shared state, or large component trees, use a fuller framework.
 
 ## Quick Start
 
@@ -481,17 +481,17 @@ gzip -k -9 pfusch.min.js; ls -lh pfusch.min.js.gz | awk '{print $5}'; rm -f pfus
 
 ### Can I use this in production?
 
-Pfusch was built for rapid prototyping and internal tools where you need results in minutes, not hours. It's perfect for:
+Pfusch was built for progressive enhancement and small interfaces where a full application framework would be excessive. Good fits include:
 
 - **Internal dashboards and admin panels**
 - **Interactive prototypes and demos**
 - **Documentation with live examples**
-- **Quick MVPs and proof-of-concepts**
+- **Small production features with progressive HTML fallbacks**
 - **Progressive enhancement of static sites**
 
 If you want to avoid npm installing the internet and fighting with webpack configs just to add some interactivity to your page, pfusch is a great choice.
 
-That said, the framework was built quickly (in a rage, even), and most effort went into the GitHub page rather than production-grade testing. The license is MIT, so you're free to use it however you want—just know what you're getting into.
+For production use, pin or self-host the module, exercise the target browsers in your own test suite, and keep components focused. Pfusch deliberately does not provide routing, application-wide state management, server rendering infrastructure, or compatibility layers for older browsers.
 
 ### How does it compare to React/Vue/Svelte?
 
@@ -532,7 +532,17 @@ pfusch(
 4. **Light DOM access:** `helpers.children()` → access original HTML content
 5. **State subscription:** `state.subscribe('key', callback)` → react to changes
 
-`script()` runs once per component instance, including when that same instance is disconnected and later reconnected. It also runs before elements returned by the template are synchronized into the shadow root. Use declarative event attributes for template-owned elements, `helpers.children()` for original light-DOM elements, and schedule canvas or third-party initialization with `requestAnimationFrame` when it requires the rendered shadow DOM.
+State reactivity observes assignments to declared top-level keys. Replace arrays or nested objects after changing them (`state.items = [...state.items, item]`); mutations such as `state.items.push(item)` are not observed.
+
+`script()` runs once per connected lifecycle and may return a cleanup function. Cleanup runs after a genuine disconnection; reconnecting the same instance runs the script again. Brief disconnects caused by moving an element in the DOM do not restart it. A script runs before elements returned by the template are synchronized into the shadow root. Use declarative event attributes for template-owned elements and return cleanup for external subscriptions:
+
+```js
+script(function () {
+  const onResize = () => state.width = window.innerWidth;
+  window.addEventListener("resize", onResize);
+  return () => window.removeEventListener("resize", onResize);
+})
+```
 
 **Quick Examples:**
 
@@ -744,8 +754,8 @@ Ah, you really want all the fun of React, but without the React. You can do that
 
 ```js
 pfusch("item-list", { source: "", items: [] }, (state) => [
-    script(async () => {
-        state.subscribe("source", async () => {
+    script(() => {
+        return state.subscribe("source", async () => {
             if (state.source === "") return ``;
             state.items = await fetch(`/data/${state.source}.json`).then(r => r.json())
         })

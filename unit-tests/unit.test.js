@@ -191,16 +191,55 @@ test('pfusch recovers after a template throws', async () => {
   assert.equal(el.shadowRoot.querySelector('div').textContent, '1');
 });
 
-test('pfusch scripts run once per component instance across reconnects', async () => {
+test('pfusch scripts stay active across brief DOM moves', async () => {
   let runs = 0;
   pfusch('test-script-reconnect', {}, () => [script(() => { runs++; }), html.div('content')]);
   const el = document.createElement('test-script-reconnect');
   document.body.appendChild(el);
   el.remove();
-  await new Promise(r => setTimeout(r, 0));
   document.body.appendChild(el);
   await new Promise(r => setTimeout(r, 0));
   assert.equal(runs, 1);
+});
+
+test('pfusch cleans up scripts after disconnect and restores them on reconnect', async () => {
+  let activeEffects = 0;
+  pfusch('test-script-cleanup', {}, () => [
+    script(() => {
+      activeEffects++;
+      return () => { activeEffects--; };
+    }),
+    html.div('content')
+  ]);
+
+  const el = document.createElement('test-script-cleanup');
+  document.body.appendChild(el);
+  assert.equal(activeEffects, 1);
+
+  el.remove();
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(activeEffects, 0);
+
+  document.body.appendChild(el);
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(activeEffects, 1);
+});
+
+test('component instances do not share mutable initial state', () => {
+  pfusch('test-state-isolation', { items: [], profile: { name: 'initial' } }, (state) => [
+    html.div(`${state.items.length}:${state.profile.name}`)
+  ]);
+
+  const first = document.createElement('test-state-isolation');
+  const second = document.createElement('test-state-isolation');
+  document.body.appendChild(first);
+  document.body.appendChild(second);
+
+  first.state.items.push('first-only');
+  first.state.profile.name = 'changed';
+
+  assert.equal(second.state.items.length, 0);
+  assert.equal(second.state.profile.name, 'initial');
 });
 
 test('pfusch scripts run before template-owned DOM is synchronized', () => {
