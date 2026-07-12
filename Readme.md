@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-170-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-11K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.2K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-169-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-12K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.3K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -298,7 +298,7 @@ Always start with working HTML, then enhance:
   // Enhance with client-side validation and feedback
   pfusch("email-form", { status: "" }, (state, trigger, { children }) => [
     script(function() {
-      const form = this.querySelector('form');
+      const [form] = children('form');
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         state.status = "Submitting...";
@@ -532,6 +532,8 @@ pfusch(
 4. **Light DOM access:** `helpers.children()` → access original HTML content
 5. **State subscription:** `state.subscribe('key', callback)` → react to changes
 
+`script()` runs once per component instance, including when that same instance is disconnected and later reconnected. It also runs before elements returned by the template are synchronized into the shadow root. Use declarative event attributes for template-owned elements, `helpers.children()` for original light-DOM elements, and schedule canvas or third-party initialization with `requestAnimationFrame` when it requires the rendered shadow DOM.
+
 **Quick Examples:**
 
 ```js
@@ -564,7 +566,7 @@ pfusch("data-loader", { data: [] }, (state) => [
 // Progressive enhancement
 pfusch("enhanced-form", {}, (state, trigger, { children }) => [
   script(function() {
-    const form = this.querySelector('form');
+    const [form] = children('form');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       // Handle client-side

@@ -128,6 +128,105 @@ test('pfusch defers script until light DOM children are ready', async () => {
   assert.equal(formCount, 1, 'Script should see light DOM children that arrive right after connect');
 });
 
+test('pfusch as=lazy defers the template until lazy mode is removed', async () => {
+  let renders = 0;
+  pfusch('test-lazy-render', {}, () => {
+    renders++;
+    return [html.div('ready')];
+  });
+
+  const el = document.createElement('test-lazy-render');
+  el.setAttribute('as', 'lazy');
+  document.body.appendChild(el);
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.equal(renders, 0);
+  assert.equal(el.shadowRoot.children.length, 0);
+
+  el.removeAttribute('as');
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(renders, 1);
+  assert.equal(el.shadowRoot.querySelector('div').textContent, 'ready');
+});
+
+test('pfusch recursively renders nested arrays at the template root', () => {
+  pfusch('test-nested-root-arrays', {}, () => [[[[html.div('deep')]]]]);
+  const el = document.createElement('test-nested-root-arrays');
+  document.body.appendChild(el);
+  assert.equal(el.shadowRoot.querySelector('div').textContent, 'deep');
+});
+
+test('pfusch recovers after a template returns a non-array', async () => {
+  let valid = false;
+  pfusch('test-invalid-template-result', { tick: 0 }, (state) =>
+    valid ? [html.div(String(state.tick))] : null
+  );
+  const warn = console.warn;
+  console.warn = () => {};
+  const el = document.createElement('test-invalid-template-result');
+  document.body.appendChild(el);
+  console.warn = warn;
+
+  valid = true;
+  el.state.tick = 1;
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(el.shadowRoot.querySelector('div').textContent, '1');
+});
+
+test('pfusch recovers after a template throws', async () => {
+  let broken = true;
+  pfusch('test-template-error-recovery', { tick: 0 }, (state) => {
+    if (broken) throw new Error('expected test error');
+    return [html.div(String(state.tick))];
+  });
+  const error = console.error;
+  console.error = () => {};
+  const el = document.createElement('test-template-error-recovery');
+  document.body.appendChild(el);
+  console.error = error;
+
+  broken = false;
+  el.state.tick = 1;
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(el.shadowRoot.querySelector('div').textContent, '1');
+});
+
+test('pfusch scripts run once per component instance across reconnects', async () => {
+  let runs = 0;
+  pfusch('test-script-reconnect', {}, () => [script(() => { runs++; }), html.div('content')]);
+  const el = document.createElement('test-script-reconnect');
+  document.body.appendChild(el);
+  el.remove();
+  await new Promise(r => setTimeout(r, 0));
+  document.body.appendChild(el);
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(runs, 1);
+});
+
+test('pfusch scripts run before template-owned DOM is synchronized', () => {
+  let foundDuringScript = true;
+  pfusch('test-script-timing', {}, () => [
+    script(function() { foundDuringScript = !!this.querySelector('button'); }),
+    html.button('ready')
+  ]);
+  const el = document.createElement('test-script-timing');
+  document.body.appendChild(el);
+  assert.equal(foundDuringScript, false);
+  assert.ok(el.shadowRoot.querySelector('button'));
+});
+
+test('pfusch renders numeric children and root values', () => {
+  pfusch('test-numeric-rendering', {}, () => [0, html.div(0), 42n]);
+  const el = document.createElement('test-numeric-rendering');
+  document.body.appendChild(el);
+  assert.equal(el.shadowRoot.textContent, '0042');
+});
+
+test('tagged templates preserve zero and false interpolations', () => {
+  const el = toElement(html.div`zero=${0}; false=${false}`);
+  assert.equal(el.innerHTML, 'zero=0; false=false');
+});
+
 test('pfusch handles camelCase attributes', async () => {
     pfusch('test-camel', { camelCase: 'initial' }, (state) => [
         html.div(state.camelCase)

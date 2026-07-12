@@ -616,6 +616,7 @@ pfusch("minimap-panel", {
         .location-label { font-family: 'Crimson Text', serif; font-size: 0.8rem; color: #F5E6C8; text-align: center; margin-top: 5px; }
     `,
     script(function() {
+      requestAnimationFrame(() => {
         const canvas = this.shadowRoot.querySelector('.map-canvas');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -669,6 +670,7 @@ pfusch("minimap-panel", {
                 drawMinimap();
             }
         });
+      });
     }),
     html.div({ class: 'panel' },
         html.div({ class: 'title' }, '🗺️ Map'),

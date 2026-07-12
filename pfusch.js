@@ -3,7 +3,7 @@ const s = 'string', o = 'object', jstr = JSON.stringify, cssCache = new Map();
 // This deliberately excludes aria-* (aria-hidden, aria-expanded, ...), which require the literal string.
 const boolAttrs = ['checked', 'selected', 'disabled', 'readonly', 'multiple', 'hidden', 'required', 'autofocus', 'open', 'inert'], boolAttrSet = new Set(boolAttrs);
 const json = j => { try { return j && typeof j === s ? JSON.parse(j) : j; } catch { return j; } };
-const str = (string, ...tags) => typeof string === s ? string : string.reduce((acc, part, i) => acc + part + (tags[i] || ''), '');
+const str = (string, ...tags) => typeof string === s ? string : string.reduce((acc, part, i) => acc + part + (tags[i] ?? ''), '');
 const isEl = n => n && (n.nodeType === 1 || (typeof window !== 'undefined' && window.Element && n instanceof window.Element));
 const isBoolAttrValue = (key, value) => boolAttrSet.has(key) && typeof value === 'boolean';
 // _f bitflags (kept as a single field to stay small after minification):
@@ -13,8 +13,7 @@ const attrNames = k => [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCa
 // cssCache is unbounded and keyed by the rendered CSS text — fine for the intended use (static css`` templates
 // shared across instances), but avoid interpolating per-instance/dynamic values into a css`` template.
 export const css = (style, ...tags) => {
-    const cssText = str(style, ...tags);
-    let sheet;
+    const cssText = str(style, ...tags); let sheet;
     const content = () => {
         if (sheet) return sheet;
         sheet = cssCache.get(cssText);
@@ -34,11 +33,11 @@ class Element {
         return new Proxy(a, { get(_, k) { return k === 'innerHTML' ? (s._html || '') : k === 'setAttribute' ? (n, v) => { a[n] = v; } : k === 'getAttribute' ? (n) => a[n] != null ? String(a[n]) : null : k === 'removeAttribute' ? (n) => { delete a[n]; } : k === 'hasAttribute' ? (n) => n in a : k === 'classList' ? cl : a[k]; }, set(_, k, v) { if (k === 'innerHTML') s._html = v; else a[k] = v; return true; } });
     }
     add(option, ah = () => []) {
-        if (!option) return this;
+        if (option == null || option === false) return this;
         const t = typeof option;
-        if (t === 'string') this._c.push(option);
-        else if (Array.isArray(option)) option.forEach(c => this.add(c, ah));
+        if (t === s || t === 'number' || t === 'bigint') this._c.push(String(option));
         else if (option.raw) this._html = str(option, ...ah());
+        else if (Array.isArray(option)) option.forEach(c => this.add(c, ah));
         else if (option._t || option.element || option instanceof HTMLElement) this._c.push(option);
         else if (t === o) Object.entries(option).forEach(([k, v]) => { if (+k == k) return; if (typeof v === 'function') this._re[k] = v; else this._a[k] = v; });
         return this;
@@ -55,11 +54,8 @@ export function pfusch(tagName, initialState, template) {
     const attrMap = Object.fromEntries(Object.keys(initialState).flatMap(k => attrNames(k).map(n => [n, k])));
     const boolStateKeys = new Set(Object.entries(initialState).filter(([, v]) => typeof v === 'boolean').map(([k]) => k));
     const toStateValue = (key, rawValue) => {
-        if (!boolStateKeys.has(key)) return json(rawValue);
-        if (rawValue === null) return false;
-        if (rawValue === '') return true;
         const parsed = json(rawValue);
-        return typeof parsed === 'boolean' ? parsed : Boolean(parsed);
+        return !boolStateKeys.has(key) ? parsed : rawValue === null ? false : rawValue === '' ? true : typeof parsed === 'boolean' ? parsed : Boolean(parsed);
     };
 
     class Pfusch extends HTMLElement {
@@ -86,7 +82,7 @@ export function pfusch(tagName, initialState, template) {
             });
         }
 
-        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy' || !this.shadowRoot.children.length) this.render(); } }
+        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy') this.render(); } }
         disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
         getStableId(tag, pos) { return `${tag.toLowerCase()}-${pos}`; }
 
@@ -95,37 +91,40 @@ export function pfusch(tagName, initialState, template) {
         render(force = false) {
             if (!template) return;
             if (this._f & RENDERING) { this._f |= NEEDS_RERENDER; return; }
-            const snap = jstr(this._raw);
-            if (!force && snap === this._snap) { this._f &= ~(QUEUED|NEEDS_RERENDER); return; }
             this._f |= RENDERING;
-            if (!this.lightDOMChildren.length) this.lightDOMChildren = Array.from(this.children), this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
-            const trigger = (eventName, detail) => { const full = `${tagName}.${eventName}`;[full, eventName].forEach(e => this.dispatchEvent(new CustomEvent(e, { detail, bubbles: true, composed: true }))); let data; try { data = jstr(detail); } catch { data = null; } window.postMessage({ eventName: full, detail: { sourceId: this.id, data } }, "*"); };
-            const children = sel => sel ? this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === sel.toLowerCase() || c.matches?.(sel)) : this.lightDOMChildren;
-            const result = template(this.state, trigger, { children, childElements: s => children(s).map(toElem) });
-            if (!Array.isArray(result)) return;
-            const hasSlot = n => !!n && (n._t === 'slot' || Array.isArray(n) && n.some(hasSlot) || n._c?.some(hasSlot));
-            const focusId = this.shadowRoot.activeElement?.id;
+            try {
+              const snap = jstr(this._raw);
+              if (!force && snap === this._snap) { this._f &= ~(QUEUED|NEEDS_RERENDER); return; }
+              if (!this.lightDOMChildren.length) this.lightDOMChildren = Array.from(this.children), this._lightById = new Map([...this.lightDOMChildren, ...this.lightDOMChildren.flatMap(c => Array.from(c.querySelectorAll?.('[id]') || []))].filter(c => c.id).map(c => [c.id, c]));
+              const trigger = (eventName, detail) => { const full = `${tagName}.${eventName}`;[full, eventName].forEach(e => this.dispatchEvent(new CustomEvent(e, { detail, bubbles: true, composed: true }))); let data; try { data = jstr(detail); } catch { data = null; } window.postMessage({ eventName: full, detail: { sourceId: this.id, data } }, "*"); };
+              const children = sel => sel ? this.lightDOMChildren.filter(c => c.tagName?.toLowerCase() === sel.toLowerCase() || c.matches?.(sel)) : this.lightDOMChildren;
+              const result = template(this.state, trigger, { children, childElements: s => children(s).map(toElem) });
+              if (!Array.isArray(result)) { console.warn(`pfusch: <${tagName}> template must return an array`); return; }
+              const hasSlot = n => !!n && (n._t === 'slot' || Array.isArray(n) && n.some(hasSlot) || n._c?.some(hasSlot));
+              const focusId = this.shadowRoot.activeElement?.id;
 
-            if (!(this._f & STYLES_INJECTED)) { const gs = [...document.querySelectorAll(this.getAttribute("inject-styles") || "style[data-pfusch]")]; if (gs.length) { const sh = new CSSStyleSheet(); sh.replaceSync(gs.map(g => g.textContent || g.innerHTML).join("\n")); this.shadowRoot.adoptedStyleSheets = [sh, ...this.shadowRoot.adoptedStyleSheets]; } this._f |= STYLES_INJECTED; } // inject global styles once
-            if (!(this._f & LINKS_CLONED)) { document.querySelectorAll(this.getAttribute("inject-links") || "link[data-pfusch]").forEach(l => this.shadowRoot.appendChild(l.cloneNode(true))); this._f |= LINKS_CLONED; }
+              if (!(this._f & STYLES_INJECTED)) { const gs = [...document.querySelectorAll(this.getAttribute("inject-styles") || "style[data-pfusch]")]; if (gs.length) { const sh = new CSSStyleSheet(); sh.replaceSync(gs.map(g => g.textContent || g.innerHTML).join("\n")); this.shadowRoot.adoptedStyleSheets = [sh, ...this.shadowRoot.adoptedStyleSheets]; } this._f |= STYLES_INJECTED; } // inject global styles once
+              if (!(this._f & LINKS_CLONED)) { document.querySelectorAll(this.getAttribute("inject-links") || "link[data-pfusch]").forEach(l => this.shadowRoot.appendChild(l.cloneNode(true))); this._f |= LINKS_CLONED; }
 
-            const elementItems = []; this._pos = 0;
-            const mergeFromOriginal = (desc) => { const orig = desc._a.id && this._lightById?.get(desc._a.id); if (orig && orig.tagName.toLowerCase() === desc._t) { const tplKeys = new Set(Object.keys(desc._a)); Array.from(orig.attributes).forEach(a => { if (!tplKeys.has(a.name)) desc._a[a.name] = a.value; }); orig.classList.forEach(cls => { if (!desc._a.class?.split(' ').includes(cls)) desc._a.class = desc._a.class ? desc._a.class + ' ' + cls : cls; }); if ((orig instanceof HTMLInputElement || orig instanceof HTMLTextAreaElement) && !('value' in desc._a) && orig.value) desc._a.value = orig.value; } desc._c?.forEach(c => c?._t && mergeFromOriginal(c)); };
-            const pushEl = desc => { if (!desc._a.id) desc._a.id = this.getStableId(desc._t, this._pos++); if (this._lightById.size) mergeFromOriginal(desc); elementItems.push(desc); };
-            const processItem = i => { if (!i) return; if (i._t) { pushEl(i); return; } const el = i.element || (isEl(i) ? i : null); if (el) { if (!el.id) el.id = this.getStableId(el.tagName, this._pos++); elementItems.push({ _el: el }); } else if (typeof i === 'string') pushEl({ _t: 'span', _a: {}, _c: [i], _re: {} }); };
+              const elementItems = []; this._pos = 0;
+              const mergeFromOriginal = (desc) => { const orig = desc._a.id && this._lightById?.get(desc._a.id); if (orig && orig.tagName.toLowerCase() === desc._t) { const tplKeys = new Set(Object.keys(desc._a)); Array.from(orig.attributes).forEach(a => { if (!tplKeys.has(a.name)) desc._a[a.name] = a.value; }); orig.classList.forEach(cls => { if (!desc._a.class?.split(' ').includes(cls)) desc._a.class = desc._a.class ? desc._a.class + ' ' + cls : cls; }); if ((orig instanceof HTMLInputElement || orig instanceof HTMLTextAreaElement) && !('value' in desc._a) && orig.value) desc._a.value = orig.value; } desc._c?.forEach(c => c?._t && mergeFromOriginal(c)); };
+              const pushEl = desc => { if (!desc._a.id) desc._a.id = this.getStableId(desc._t, this._pos++); if (this._lightById.size) mergeFromOriginal(desc); elementItems.push(desc); };
+              const processItem = i => { if (i == null || i === false) return; if (Array.isArray(i)) { i.forEach(processItem); return; } if (i._t) { pushEl(i); return; } const el = i.element || (isEl(i) ? i : null); if (el) { if (!el.id) el.id = this.getStableId(el.tagName, this._pos++); elementItems.push({ _el: el }); } else if (typeof i === 'string' || typeof i === 'number' || typeof i === 'bigint') pushEl({ _t: 'span', _a: {}, _c: [String(i)], _re: {} }); };
 
-            result.forEach(item => {
-                if (!item) return;
-                if (item.type === 'style') { const sheet = item.content(); if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]; }
-                else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
-                else if (Array.isArray(item)) item.forEach(processItem);
-                else processItem(item);
-            });
+              result.forEach(item => {
+                  if (item == null || item === false) return;
+                  if (item.type === 'style') { const sheet = item.content(); if (!this.shadowRoot.adoptedStyleSheets.includes(sheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, sheet]; }
+                  else if (item.type === 'script' && !(this._f & SCRIPTS_EXEC)) { if (!this.lightDOMChildren.length && !this._lightDomRetryDone && result.some(hasSlot)) { this._lightDomRetryDone = true; setTimeout(() => { this._snap = undefined; this.render(); }); return; } try { item.content.call({ component: this, shadowRoot: this.shadowRoot, state: this.state, addEventListener: this.addEventListener.bind(this), querySelector: s => this.shadowRoot.querySelector(s), querySelectorAll: s => this.shadowRoot.querySelectorAll(s) }); } catch (e) { console.error('Script error:', e); } this._f |= SCRIPTS_EXEC; }
+                  else if (Array.isArray(item)) processItem(item);
+                  else processItem(item);
+              });
 
-            this.syncChildren(this.shadowRoot, elementItems.filter(e => (e._t || e._el?.tagName || '').toUpperCase() !== 'LINK'));
-            if (focusId) requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
-            this.#internals.setFormValue(this._snap = (this._f & NEEDS_RERENDER ? jstr(this._raw) : snap));
-            this._f &= ~RENDERING; if (this._f & QUEUED) this._f &= ~QUEUED; if (this._f & NEEDS_RERENDER) { this._f &= ~NEEDS_RERENDER; this.render(true); }
+              this.syncChildren(this.shadowRoot, elementItems.filter(e => (e._t || e._el?.tagName || '').toUpperCase() !== 'LINK'));
+              if (focusId) requestAnimationFrame(() => this.shadowRoot.getElementById(focusId)?.focus());
+              this.#internals.setFormValue(this._snap = (this._f & NEEDS_RERENDER ? jstr(this._raw) : snap));
+              this._f &= ~RENDERING; if (this._f & QUEUED) this._f &= ~QUEUED; if (this._f & NEEDS_RERENDER) { this._f &= ~NEEDS_RERENDER; this.render(true); }
+            } catch (e) { console.error(`pfusch: <${tagName}> render error:`, e); }
+            finally { this._f &= ~(RENDERING|QUEUED); }
         }
 
         scheduleRender() { if (this._f & RENDERING) { this._f |= NEEDS_RERENDER; return; } if (this._f & QUEUED) return; this._f |= QUEUED; queueMicrotask(() => { if (!(this._f & QUEUED) || (this._f & RENDERING)) { this._f |= NEEDS_RERENDER; return; } this.render(); }); }
