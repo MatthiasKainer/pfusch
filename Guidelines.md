@@ -31,6 +31,7 @@ The `script(function() { ... })` helper is your primary tool for logic.
 *   **Subscription**: Use `state.subscribe('key', callback)` to react to specific state changes.
 *   **Scope**: `this` refers to the custom element itself.
 *   **Cleanup**: Use `this.component.addEventListener('disconnected', ...)` inside the script to clean up intervals or global listeners.
+*   **Per-node lifecycle**: For a single element rather than the whole component, put `mount(e)`/`unmount(e)` functions in that descriptor's attrs — they fire when pfusch creates and removes the node, which is where an imperative widget or animation engine gets set up and torn down (pair them with `keep: true` so the engine's children survive rerenders). See the *How do I animate things?* section of `Readme.md`.
 
 ## 5. Styling & Design Systems
 Because of the Shadow DOM, external CSS (like Bootstrap or Tailwind) won't apply to elements *inside* your component template by default.

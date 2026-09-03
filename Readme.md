@@ -783,6 +783,118 @@ Now if someone use the component like this:
 and then changes the source attribute, the list will be updated with the new items. This is all thanks to the javascript `Proxy` object, which is also the reason why this library is very slow and not supported in IE11.
 
 
+### How do I animate things?
+
+Mostly with CSS, because pfusch patches nodes in place instead of rebuilding them. Toggle a class, change an attribute, and the transition just runs — there is no diffing layer to fight. For the two moments CSS cannot reach on its own (a node that has not appeared yet, and a node that is about to be deleted) there are four reserved descriptor attrs: `keep`, `mount`, `unmount` and `exit`.
+
+**Entering: `@starting-style`.** Nothing in pfusch needed. Give the element the state it should settle into, and the state it should come *from*:
+
+```css
+li { opacity: 1; transform: none; transition: opacity .2s, transform .2s }
+@starting-style { li { opacity: 0; transform: translateY(-6px) } }
+```
+
+**Leaving: `exit`.** Without it, removal is a synchronous `remove()` and your animation never gets a frame. `exit` gives it one:
+
+```js
+html.li({ id: `todo-${t.id}`, exit: 'leaving' }, t.text)
+```
+
+```css
+li.leaving { animation: leave .3s ease-in forwards }
+@keyframes leave { to { opacity: 0; transform: translateX(28px) } }
+```
+
+When the differ drops that node it marks it `data-pfusch="exit"`, adds the class, and only removes it once the animation is done. The marked node is excluded from diffing and from reordering, so a row leaving the middle of a list holds its place while its neighbours close up around it.
+
+The function form gets the node and can start the animation itself — handy for the Web Animations API, where you would otherwise need a class *and* a keyframe rule:
+
+```js
+html.div({
+  id: 'panel',
+  exit: (e) => e.target.animate(
+    [{ opacity: 1 }, { opacity: 0, transform: 'translateY(-10px)' }],
+    { duration: 300, easing: 'ease-in', fill: 'forwards' }
+  )
+}, 'bye')
+```
+
+**The rule that makes this predictable:** pfusch awaits `getAnimations({ subtree: true })` filtered to the animations that are *pending* — the ones that were just created and have not started yet. So:
+
+- An animation that was already running when the node was dropped does not delay it.
+- If nothing is pending, the node goes away on the next microtask. That *is* the reduced-motion path: put your leave animation behind `@media (prefers-reduced-motion: reduce) { li.leaving { animation: none } }` and reduced-motion visitors get instant removal for free, with no JavaScript branch. In a function `exit`, return early instead:
+  ```js
+  exit: (e) => { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.target.animate(...); }
+  ```
+- An *infinite* exit animation is always pending, so the node never leaves. Don't.
+
+**Reordering: View Transitions.** pfusch moves the existing nodes rather than recreating them, so a FLIP is a wrapper around your state change and nothing in the core:
+
+```js
+const withTransition = (mutate) => {
+  if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return mutate();
+  // the callback must not resolve before pfusch has rendered
+  return document.startViewTransition(async () => {
+    mutate();
+    await new Promise(resolve => queueMicrotask(resolve));
+  });
+};
+
+html.li({ id: `card-${name}`, style: `view-transition-name: card-${name}` }, name)
+html.button({ click: () => withTransition(() => { state.order = rotate(state.order); }) }, 'rotate')
+```
+
+**Hosting an imperative engine: `keep` + `mount`/`unmount`.** Designers often hand over a class that owns a piece of DOM and animates it itself. Two things used to make that impossible: an empty descriptor wipes the live node's children on every render, and there was no hook telling the engine when its node appeared. `keep: true` says *the template owns this node's attributes, listeners and props; you own its children*. `mount(e)` fires once when the node is created (or the first time pfusch adopts server-rendered markup); `unmount(e)` fires after it is removed, after any exit animation.
+
+```js
+pfusch('step-state-icon', { state: 'plan', size: 26, animate: true }, (state) => [
+  css`:host { display: inline-flex; line-height: 0 } [keep] { width: var(--size); height: var(--size) }`,
+  html.span({
+    id: 'icon', keep: true, role: 'img', 'aria-label': `step ${state.state}`,
+    style: `--size:${state.size}px`,
+    mount(e) {
+      const host = e.target, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const icon = host._icon = new StepStateIcon(host, { state: state.state });
+      host._off = state.subscribe('state', s => state.animate && !reduce ? icon.set(s) : icon.snapTo(s));
+    },
+    unmount(e) { e.target._off(); e.target._icon.destroy(); }
+  })
+]);
+
+// the parent only ever sets an attribute; the engine node is never rebuilt
+html['step-state-icon']({ id: `step-${step.id}`, state: step.state })
+```
+
+Two things to keep straight:
+
+- **The engine must write inside its node, not onto it.** `keep` only exempts the children. The next render still syncs attributes, which means it removes any attribute the descriptor does not declare — so an engine that stamps `data-state` on the kept host will find it gone. Stamp it on a child.
+- **`mount` runs while the node is still detached**, so it has no layout. Measure in a `requestAnimationFrame`.
+
+`html['step-state-icon']` above is a pfusch component, so its `state` attribute is the whole input channel — no wrapper needed. Note that `set(same)` should be a no-op in your engine: a parent re-rendering for unrelated reasons will push the current value again.
+
+**The alternative: bring your own node.** A real DOM element returned from a template is adopted as-is and pfusch never touches its contents — no `keep` needed, because there is no descriptor to diff against. The usual source of such a node is the light DOM:
+
+```html
+<chart-box><canvas width="600" height="200"></canvas></chart-box>
+```
+
+```js
+pfusch('chart-box', { data: [] }, (state, trigger, { children }) => [
+  script(function () {
+    const canvas = children('canvas')[0];
+    return state.subscribe('data', d => draw(canvas, d));
+  }),
+  html.h3('Throughput'),
+  children('canvas')[0]   // the real element, moved into the shadow root untouched
+]);
+```
+
+That is the right shape when the node comes from the server or must outlive the component's renders. It is less declarative than `keep` — you own the node's attributes as well as its children, and `mount`/`unmount` do not apply, so cleanup goes in `script()`'s return value.
+
+**Reserved names.** `keep`, `mount`, `unmount` and `exit` are reserved attribute names on descriptors, next to `id`. `data-pfusch` is reserved on real nodes — pfusch uses it for injected `<link>`/`<style>` clones and for nodes that are animating out, and it ignores any node carrying it. Don't set it yourself, and don't declare a state key called `as`, `id`, `inject-styles` or `inject-links`.
+
+All four live and runnable: [`examples/animation.html`](examples/animation.html).
+
 ### But I need routing and...
 
 STOP RIGHT THERE! Pfusch is not an SPA framework. It's for progressive enhancement and rapid prototyping. 
