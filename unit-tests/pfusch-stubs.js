@@ -1241,8 +1241,11 @@ export async function import_for_test(modulePath, pfuschPathOrOptions = null, ex
   const base = path.basename(moduleFsPath, ext);
   const dir = path.dirname(moduleFsPath);
   const hash = createHash('sha1').update(cacheKey).digest('hex').slice(0, 8);
-  // Keep the shim next to the original so relative imports keep working.
-  const tempPath = path.join(dir, `.${base}.pfusch-test.${hash}${ext}`);
+  // Keep the shim next to the original so relative imports keep working. The pid keeps
+  // the name unique: `node --test` runs test files in parallel processes, and two of them
+  // importing the same module would otherwise race on one path — the loser imports a file
+  // the winner has already unlinked.
+  const tempPath = path.join(dir, `.${base}.pfusch-test.${hash}.${process.pid}${ext}`);
   await fs.promises.writeFile(tempPath, replaced, 'utf8');
 
   const tempUrl = pathToFileURL(tempPath).href;
