@@ -138,32 +138,33 @@ export function pfusch(tagName, initialState, template) {
             const syncAttrs = (t, src) => { const a = src._a || {}, seen = new Set(), n = t.tagName?.includes('-') ? k => String(k).toLowerCase() : k => String(k); for (const [k, v] of Object.entries(a)) { if (k === 'id' || typeof v === 'function') continue; const attr = n(k); if (isBoolAttrValue(k, v)) { if (v) { seen.add(attr); if (t.getAttribute(attr) !== 'true') t.setAttribute(attr, 'true'); } else if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } seen.add(attr); if (v == null) { if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } const sv = typeof v === o ? jstr(v) : String(v); if (t.getAttribute(attr) !== sv) t.setAttribute(attr, sv); } for (const at of Array.from(t.attributes)) { const attr = n(at.name); if (attr !== 'id' && !seen.has(attr)) t.removeAttribute(at.name); } };
             const syncProps = (t, src) => { const a = src._a || {}; boolAttrs.forEach(p => { if (!(p in a) || typeof a[p] !== 'boolean') return; if (a[p] !== t[p]) try { t[p] = a[p]; } catch {} }); if ('value' in a && !(document.activeElement === t || t.contains(document.activeElement)) && String(a.value) !== t.value) try { t.value = a.value; } catch {}; };
 
-            const drop = n => { n.remove(); if (n._re?.unmount) n.dispatchEvent(new CustomEvent('unmount')); };
+            const nx = (n, s) => { while (n && n.getAttribute?.('data-pfusch') != null) n = n[s]; return n; };
+            const hasExit = n => !!(n._re?.exit || n.getAttribute?.('exit') != null), drop = async n => { const un = () => { if (n._re?.unmount) n.dispatchEvent(new CustomEvent('unmount')); }; if (n.nodeType !== 1 || !hasExit(n)) { n.remove(); return un(); } if (n.getAttribute('data-pfusch') !== null) return; const cls = n.getAttribute('exit'); n.setAttribute('data-pfusch', 'exit'); if (cls) n.classList.add(...cls.split(' ').filter(Boolean)); n.dispatchEvent(new CustomEvent('exit')); await Promise.allSettled((n.getAnimations?.({ subtree: true }) || []).filter(a => a.pending).map(a => a.finished)); n.remove(); un(); };
             const syncNodeChildren = (o, n) => {
                 if (n._a?.keep) return; if (n._html !== undefined) { if (o.innerHTML !== n._html) o.innerHTML = n._html; return; }
                 const newNodes = n._c || [];
-                if (!newNodes.length) { if (o.firstChild) o.textContent = ''; return; }
-                const oldNodes = Array.from(o.childNodes);
+                if (!newNodes.length) { if (o.firstChild) { const ch = Array.from(o.childNodes); ch.some(hasExit) ? ch.forEach(drop) : (o.textContent = ''); } return; }
+                const oldNodes = Array.from(o.childNodes).filter(c => c.getAttribute?.('data-pfusch') == null);
                 if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => { const d = newNodes[i]; return typeof d === 'string' ? c.nodeType === 3 : c.nodeType === 1 && c.tagName === (d._t?.toUpperCase() || d.element?.tagName || d.tagName) && (!d._a?.id || c.id == d._a.id); })) {
                     oldNodes.forEach((c, i) => { const d = newNodes[i]; typeof d === 'string' ? (c.textContent !== d && (c.textContent = d)) : d._t ? syncNode(c, d) : (c !== (d.element || d) && c.replaceWith(d.element || d)); });
                     return;
                 }
                 const textPool = [], elemById = new Map(), elemPools = new Map();
-                for (const c of Array.from(o.childNodes))
+                for (const c of oldNodes)
                     if (c.nodeType === 3) textPool.push(c); else if (c.nodeType === 1) { if (c.id) elemById.set(String(c.id), c); else { const p = elemPools.get(c.tagName) || []; p.push(c); elemPools.set(c.tagName, p); } }
                 let anchor = null, elIdx = 0;
-                const place = node => { if (anchor) { if (anchor.nextSibling !== node) o.insertBefore(node, anchor.nextSibling); } else if (o.firstChild !== node) o.insertBefore(node, o.firstChild); anchor = node; };
-                newNodes.forEach(d => {
-                    if (typeof d === 'string') { const r = textPool.shift(), t = r || document.createTextNode(d); if (r && r.textContent !== d) r.textContent = d; place(t); return; }
-                    if (d._t) { const tag = d._t.toUpperCase(); if (!d._a.id) d._a.id = `${d._t.toLowerCase()}-${elIdx}`; let t = elemById.get(String(d._a.id)); if (t) elemById.delete(String(d._a.id)); else { const p = elemPools.get(tag); if (p?.length) t = p.shift(); } place(t ? syncNode(t, d) : toElement(d)); elIdx++; }
-                    else { const el = d.element || d; place(el); }
+                const place = node => { const ref = nx(anchor ? anchor.nextSibling : o.firstChild, 'nextSibling'); if (ref !== node) o.insertBefore(node, ref); anchor = node; };
+                const resolved = newNodes.map(d => {
+                    if (typeof d === 'string') { const r = textPool.shift(), t = r || document.createTextNode(d); if (r && r.textContent !== d) r.textContent = d; return t; }
+                    if (!d._t) return d.element || d;
+                    const tag = d._t.toUpperCase(); if (!d._a.id) d._a.id = `${d._t.toLowerCase()}-${elIdx}`; let t = elemById.get(String(d._a.id)); if (t) elemById.delete(String(d._a.id)); else { const p = elemPools.get(tag); if (p?.length) t = p.shift(); } elIdx++; return t ? syncNode(t, d) : toElement(d);
                 });
-                [textPool, ...elemById.values(), ...[...elemPools.values()].flat()].flat().forEach(n => { if (n?.parentNode === o) drop(n); });
+                [textPool, ...elemById.values(), ...[...elemPools.values()].flat()].flat().forEach(n => { if (n?.parentNode === o) drop(n); }); resolved.forEach(place);
             };
 
             const syncNode = (o, n) => { if (n._el) { if (o !== n._el) { o.replaceWith(n._el); return n._el; } return o; } if (o.tagName !== n._t?.toUpperCase()) { const m = toElement(n); o.replaceWith(m); return m; } [syncListeners, syncAttrs, syncProps, syncNodeChildren].forEach(fn => fn(o, n)); return o; };
             const ordered = newChildren.map((n, idx) => { const id = ensureId(n, idx); const existing = byId.get(id); if (existing) byId.delete(id); const node = existing ? syncNode(existing, n) : parent.appendChild(n._el || toElement(n)); keep.add(node.id); return node; });
-            old.forEach(c => { if (!keep.has(c.id)) drop(c); }); let anchor = null; for (const node of ordered) { if (!node.parentNode) continue; if (anchor ? anchor.nextElementSibling !== node : parent.firstElementChild !== node) parent.insertBefore(node, anchor?.nextElementSibling || parent.firstElementChild); anchor = node; }
+            old.forEach(c => { if (!keep.has(c.id)) drop(c); }); let anchor = null; for (const node of ordered) { if (!node.parentNode) continue; const ref = nx(anchor ? anchor.nextElementSibling : parent.firstElementChild, 'nextElementSibling'); if (ref !== node) parent.insertBefore(node, ref); anchor = node; }
         }
     }
     customElements.define(tagName, Pfusch);
