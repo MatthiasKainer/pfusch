@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-172-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-13K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.7K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-173-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-13K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.7K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -844,7 +844,7 @@ html.li({ id: `card-${name}`, style: `view-transition-name: card-${name}` }, nam
 html.button({ click: () => withTransition(() => { state.order = rotate(state.order); }) }, 'rotate')
 ```
 
-**Hosting an imperative engine: `keep` + `mount`/`unmount`.** Designers often hand over a class that owns a piece of DOM and animates it itself. Two things used to make that impossible: an empty descriptor wipes the live node's children on every render, and there was no hook telling the engine when its node appeared. `keep: true` says *the template owns this node's attributes, listeners and props; you own its children*. `mount(e)` fires once when the node is created (or the first time pfusch adopts server-rendered markup); `unmount(e)` fires after it is removed, after any exit animation.
+**Hosting an imperative engine: `keep` + `mount`/`unmount`.** Designers often hand over a class that owns a piece of DOM and animates it itself. Two things used to make that impossible: an empty descriptor wipes the live node's children on every render, and there was no hook telling the engine when its node appeared. `keep: true` says *the template owns this node's attributes, listeners and props; you own its children*. `mount(e)` fires once when the node is created (or the first time pfusch adopts server-rendered markup); `unmount(e)` fires after it is removed, after any exit animation. Removing the whole component from the page counts too: its nodes get `unmount`, and if the same instance is appended again they get `mount` once more, so an engine with an infinite animation does not keep running behind a detached component.
 
 ```js
 pfusch('step-state-icon', { state: 'plan', size: 26, animate: true }, (state) => [
