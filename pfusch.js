@@ -144,7 +144,7 @@ export function pfusch(tagName, initialState, template) {
             const syncNodeChildren = (o, n) => {
                 if (n._a?.keep) return; if (n._html !== undefined) { if (o.innerHTML !== n._html) o.innerHTML = n._html; return; }
                 const newNodes = n._c || [];
-                if (!newNodes.length) { if (o.firstChild) { const ch = Array.from(o.childNodes); ch.some(hasExit) ? ch.forEach(drop) : (o.textContent = ''); } return; }
+                if (!newNodes.length) { if (o.firstChild) { const ch = Array.from(o.childNodes); ch.some(c => hasExit(c) || c._re?.unmount) ? ch.forEach(drop) : (o.textContent = ''); } return; }
                 const oldNodes = Array.from(o.childNodes).filter(c => c.getAttribute?.('data-pfusch') == null);
                 if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => { const d = newNodes[i]; return typeof d === 'string' ? c.nodeType === 3 : c.nodeType === 1 && c.tagName === (d._t?.toUpperCase() || d.element?.tagName || d.tagName) && (!d._a?.id || c.id == d._a.id); })) {
                     oldNodes.forEach((c, i) => { const d = newNodes[i]; typeof d === 'string' ? (c.textContent !== d && (c.textContent = d)) : d._t ? syncNode(c, d) : (c !== (d.element || d) && c.replaceWith(d.element || d)); });

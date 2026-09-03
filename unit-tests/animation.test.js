@@ -546,3 +546,19 @@ test('moving the component within the same tick fires neither unmount nor mount'
   await host.flush();
   assert.deepEqual(log, ['mount'], 'a synchronous move is not a disconnect');
 });
+
+test('clearing a list to empty still fires unmount on children without exit', async () => {
+  const unmounted = [];
+  pfusch('unmount-clear', { items: ['a', 'b'] }, (state) => [
+    html.ul({ id: 'list' }, ...state.items.map(i => html.li({ id: `item-${i}`, unmount: (e) => unmounted.push(e.target.id) }, i)))
+  ]);
+
+  const host = pfuschTest('unmount-clear');
+  await host.flush();
+
+  host.host.state.items = [];
+  await host.flush();
+
+  assert.equal(host.get('#list').elements[0].children.length, 0, 'removal is still immediate without exit');
+  assert.deepEqual(unmounted.sort(), ['item-a', 'item-b']);
+});

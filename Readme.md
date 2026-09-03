@@ -868,7 +868,8 @@ html['step-state-icon']({ id: `step-${step.id}`, state: step.state })
 Two things to keep straight:
 
 - **The engine must write inside its node, not onto it.** `keep` only exempts the children. The next render still syncs attributes, which means it removes any attribute the descriptor does not declare — so an engine that stamps `data-state` on the kept host will find it gone. Stamp it on a child.
-- **`mount` runs while the node is still detached**, so it has no layout. Measure in a `requestAnimationFrame`.
+- **`mount` normally runs before the node is inserted**, so it has no layout yet. It runs on an already-connected node when pfusch adopts hydrated markup or a disconnected component reconnects. Don't rely on either: measure in a `requestAnimationFrame`.
+- **`mount`/`unmount` fire on the node the differ adds or removes, not on its descendants.** Dropping a parent does not walk its subtree, so put the hooks on the node the template actually adds and removes.
 
 `html['step-state-icon']` above is a pfusch component, so its `state` attribute is the whole input channel — no wrapper needed. Note that `set(same)` should be a no-op in your engine: a parent re-rendering for unrelated reasons will push the current value again.
 
