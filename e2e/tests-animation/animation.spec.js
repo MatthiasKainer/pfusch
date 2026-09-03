@@ -31,6 +31,26 @@ test.describe('keep + mount/unmount around an imperative engine', () => {
         await expect(svg).toHaveAttribute('data-instance', '1');
         await expect(page.locator('step-state-icon [keep]')).toHaveAttribute('aria-label', 'step plan');
     });
+
+    test('removing the whole component tears the engine down and re-appending rebuilds it', async ({ page }) => {
+        const svg = page.locator('step-state-icon svg');
+        await expect(svg).toHaveAttribute('data-instance', '1');
+
+        await page.evaluate(() => {
+            const row = document.querySelector('step-row');
+            window.__parked = { row, parent: row.parentNode };
+            row.remove();
+        });
+        await expect.poll(() => page.evaluate(() => window.__unmounts)).toBe(1);
+
+        await page.evaluate(() => window.__parked.parent.append(window.__parked.row));
+        await expect(svg).toHaveAttribute('data-instance', '2');
+        expect(await page.evaluate(() => window.__mounts)).toBe(2);
+
+        // The rebuilt engine is wired to state again.
+        await page.locator('step-row #next').click();
+        await expect(svg).toHaveAttribute('data-state', 'run');
+    });
 });
 
 test.describe('exit on a list', () => {

@@ -502,3 +502,47 @@ test('clearing a list to empty is still immediate without exit', async () => {
   assert.equal(list.children.length, 0);
 });
 
+
+// ============================================================================
+// whole-component disconnect / reconnect reaches the node lifecycle too
+// ============================================================================
+
+test('disconnecting the component fires unmount on its nodes, reconnecting mounts them again', async () => {
+  const log = [];
+  pfusch('lifecycle-host', { step: 'plan' }, (state) => [
+    html.div({ id: 'wrap' },
+      html.span({ id: 'icon', keep: true, mount: () => log.push('mount'), unmount: () => log.push('unmount') }, state.step)
+    )
+  ]);
+
+  const host = pfuschTest('lifecycle-host');
+  await host.flush();
+  assert.deepEqual(log, ['mount']);
+
+  const el = host.host;
+  el.remove();
+  await host.flush();
+  assert.deepEqual(log, ['mount', 'unmount'], 'a genuine disconnect tears the engine down');
+
+  document.body.appendChild(el);
+  await host.flush();
+  assert.deepEqual(log, ['mount', 'unmount', 'mount'], 'reconnecting builds it again on the same node');
+  assert.equal(host.get('#icon').length, 1, 'the node itself is kept, not rebuilt');
+});
+
+test('moving the component within the same tick fires neither unmount nor mount', async () => {
+  const log = [];
+  pfusch('lifecycle-move', {}, () => [
+    html.span({ id: 'icon', mount: () => log.push('mount'), unmount: () => log.push('unmount') })
+  ]);
+
+  const host = pfuschTest('lifecycle-move');
+  await host.flush();
+  assert.deepEqual(log, ['mount']);
+
+  const el = host.host, other = document.createElement('div');
+  document.body.appendChild(other);
+  other.appendChild(el);
+  await host.flush();
+  assert.deepEqual(log, ['mount'], 'a synchronous move is not a disconnect');
+});

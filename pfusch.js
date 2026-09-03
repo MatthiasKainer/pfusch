@@ -7,7 +7,7 @@ const str = (string, ...tags) => typeof string === s ? string : string.reduce((a
 const isEl = n => n && (n.nodeType === 1 || (typeof window !== 'undefined' && window.Element && n instanceof window.Element));
 const isBoolAttrValue = (key, value) => boolAttrSet.has(key) && typeof value === 'boolean';
 // _f bitflags (kept as a single field to stay small after minification):
-const SCRIPTS_EXEC = 1, STYLES_INJECTED = 2, LINKS_CLONED = 4, RENDERING = 8, NEEDS_RERENDER = 16, INIT = 32, QUEUED = 64;
+const SCRIPTS_EXEC = 1, STYLES_INJECTED = 2, LINKS_CLONED = 4, RENDERING = 8, NEEDS_RERENDER = 16, INIT = 32, QUEUED = 64, UNMOUNTED = 128;
 const attrNames = k => [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCase()];
 const copyState = v => Array.isArray(v) ? v.map(copyState) : v && Object.getPrototypeOf(v) === Object.prototype ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, copyState(x)])) : v;
 
@@ -83,8 +83,9 @@ export function pfusch(tagName, initialState, template) {
             });
         }
 
-        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy') this.render(); } else if (!(this._f & SCRIPTS_EXEC)) this.render(true); }
-        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this._cleanups.splice(0).forEach(fn => { try { fn(); } catch (e) { console.error('Cleanup error:', e); } }); this._f &= ~SCRIPTS_EXEC; this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
+        connectedCallback() { this._disconnectPending = false; if (this._f & INIT) { this._f &= ~INIT; if (this.getAttribute('as') !== 'lazy') this.render(); } else { if (this._f & UNMOUNTED) { this._f &= ~UNMOUNTED; this.lifecycle('mount'); } if (!(this._f & SCRIPTS_EXEC)) this.render(true); } }
+        disconnectedCallback() { this._disconnectPending = true; queueMicrotask(() => { if (!this._disconnectPending || this.isConnected) return; this._disconnectPending = false; this._cleanups.splice(0).forEach(fn => { try { fn(); } catch (e) { console.error('Cleanup error:', e); } }); this._f &= ~SCRIPTS_EXEC; this._f |= UNMOUNTED; this.lifecycle('unmount'); this.dispatchEvent(new CustomEvent('disconnected', { bubbles: false }));}); }
+        lifecycle(ev) { this.shadowRoot.querySelectorAll('*').forEach(n => { if (n._re?.[ev]) n.dispatchEvent(new CustomEvent(ev)); }); } // whole-component disconnect/reconnect reaches every node that declared mount/unmount
         getStableId(tag, pos) { return `${tag.toLowerCase()}-${pos}`; }
 
         attributeChangedCallback(name, oldValue, newValue) { if (oldValue === newValue) return; if (name === 'as' && newValue !== 'lazy' && oldValue === 'lazy') return this.render(); const key = attrMap[name]; if (key && this.state) this.state[key] = toStateValue(key, newValue); }
