@@ -223,12 +223,39 @@ const matchSelector = (el, selector) => {
   return selectors.some(matchesSingle);
 };
 
+// Minimal Web Animations API stand-in. `pending` mirrors the browser's "not started yet"
+// state, which is what pfusch's exit handling filters on; `finish()`/`cancel()` settle `finished`.
+export function createFakeAnimation({ pending = true, playState = 'running' } = {}) {
+  let settle = () => { }, fail = () => { };
+  const finished = new Promise((resolve, reject) => { settle = resolve; fail = reject; });
+  finished.catch(() => { }); // the caller uses allSettled; never surface an unhandled rejection
+  const animation = {
+    pending,
+    playState,
+    finished,
+    finish() {
+      animation.pending = false;
+      animation.playState = 'finished';
+      settle(animation);
+      return animation;
+    },
+    cancel() {
+      animation.pending = false;
+      animation.playState = 'idle';
+      fail(new Error('AbortError'));
+      return animation;
+    }
+  };
+  return animation;
+}
+
 class FakeElement {
   constructor(tagName, ownerDocument) {
     this.tagName = String(tagName || '').toUpperCase();
     this.nodeType = 1;
     this.ownerDocument = ownerDocument;
     this._childNodes = [];
+    this._animations = [];
     this.dataset = {};
     this.state = {};
     this.classList = new FakeClassList();
@@ -241,6 +268,35 @@ class FakeElement {
     this._name = '';
     this._type = '';
     this._action = '';
+  }
+  animate(keyframes, options) {
+    const animation = createFakeAnimation();
+    animation.keyframes = keyframes;
+    animation.options = options;
+    animation.target = this;
+    this._animations.push(animation);
+    return animation;
+  }
+  getAnimations({ subtree = false } = {}) {
+    if (!subtree) return [...this._animations];
+    const collected = [...this._animations];
+    const walk = (node) => {
+      node.children?.forEach(child => {
+        if (child._animations) collected.push(...child._animations);
+        walk(child);
+      });
+    };
+    walk(this);
+    return collected;
+  }
+  get firstChild() {
+    return this.childNodes[0] || null;
+  }
+  get nextSibling() {
+    if (!this.parentNode) return null;
+    const siblings = this.parentNode.childNodes;
+    const index = siblings.indexOf(this);
+    return index >= 0 ? siblings[index + 1] || null : null;
   }
   get className() {
     return this.classList.toString();
@@ -785,13 +841,22 @@ class FakeDocument {
     return element;
   }
   createTextNode(text) {
-    return {
+    const node = {
       nodeType: 3,
       textContent: String(text ?? ''),
       remove() {
         this.parentNode?.removeChild?.(this);
       }
     };
+    Object.defineProperty(node, 'nextSibling', {
+      get() {
+        const siblings = this.parentNode?.childNodes;
+        if (!siblings) return null;
+        const index = siblings.indexOf(this);
+        return index >= 0 ? siblings[index + 1] || null : null;
+      }
+    });
+    return node;
   }
   createRange() {
     return new FakeRange();
@@ -1307,6 +1372,8 @@ export function setupDomStubs() {
       matches: false,
       addListener: () => { },
       removeListener: () => { },
+      addEventListener: () => { },
+      removeEventListener: () => { },
   });
   globalThis.localStorage = new FakeStorage();
   globalThis.sessionStorage = new FakeStorage();
