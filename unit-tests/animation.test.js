@@ -562,3 +562,25 @@ test('clearing a list to empty still fires unmount on children without exit', as
   assert.equal(host.get('#list').elements[0].children.length, 0, 'removal is still immediate without exit');
   assert.deepEqual(unmounted.sort(), ['item-a', 'item-b']);
 });
+
+test('dropping a node fires unmount on the descendants that declared it', async () => {
+  const log = [];
+  pfusch('nested-unmount', { items: ['a', 'b'] }, (state) => [
+    html.ul({ id: 'list' }, ...state.items.map(i =>
+      html.li({ id: `row-${i}` }, html.span({ id: `engine-${i}`, keep: true, mount: () => log.push(`mount:${i}`), unmount: () => log.push(`unmount:${i}`) }))
+    ))
+  ]);
+
+  const host = pfuschTest('nested-unmount');
+  await host.flush();
+  assert.deepEqual(log, ['mount:a', 'mount:b']);
+
+  host.host.state.items = ['a'];
+  await host.flush();
+  assert.deepEqual(log, ['mount:a', 'mount:b', 'unmount:b'], 'the row itself has no hooks, its engine child still hears the removal');
+
+  host.host.state.items = [];
+  await host.flush();
+  assert.deepEqual(log, ['mount:a', 'mount:b', 'unmount:b', 'unmount:a'], 'the clear-to-empty path reaches nested hooks too');
+  assert.equal(host.get('#list').elements[0].children.length, 0);
+});

@@ -869,7 +869,7 @@ Two things to keep straight:
 
 - **The engine must write inside its node, not onto it.** `keep` only exempts the children. The next render still syncs attributes, which means it removes any attribute the descriptor does not declare — so an engine that stamps `data-state` on the kept host will find it gone. Stamp it on a child.
 - **`mount` normally runs before the node is inserted**, so it has no layout yet. It runs on an already-connected node when pfusch adopts hydrated markup or a disconnected component reconnects. Don't rely on either: measure in a `requestAnimationFrame`.
-- **`mount`/`unmount` fire on the node the differ adds or removes, not on its descendants.** Dropping a parent does not walk its subtree, so put the hooks on the node the template actually adds and removes.
+- **`unmount` reaches nested nodes, `exit` does not.** When a node is removed, every descendant that declared `unmount` hears it, so an engine inside a dropped list row is torn down. An `exit` is only awaited on the node the differ removes itself.
 
 `html['step-state-icon']` above is a pfusch component, so its `state` attribute is the whole input channel — no wrapper needed. Note that `set(same)` should be a no-op in your engine: a parent re-rendering for unrelated reasons will push the current value again.
 
