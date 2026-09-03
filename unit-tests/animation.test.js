@@ -309,3 +309,196 @@ test('unkeyed children still get reused positionally', async () => {
   assert.equal(list.children[1], secondBefore, 'no id means position keeps the node');
   assert.equal(list.children[1].textContent, 'c');
 });
+
+// ============================================================================
+// exit
+// ============================================================================
+
+// CSS never runs in the fake DOM, so tests that exercise the string form of `exit`
+// seed the animation the stylesheet would have started.
+const seedExitAnimation = (node) => node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200 });
+
+const defineExitList = (tag, exitValue) => pfusch(tag, { items: ['a', 'b', 'c'] }, (state) => [
+  html.ul({ id: 'list' }, ...state.items.map(i => html.li({ id: `item-${i}`, exit: exitValue }, i)))
+]);
+
+test('a string exit keeps the leaving node in place until its animation finishes', async () => {
+  defineExitList('exit-string', 'leaving');
+
+  const host = pfuschTest('exit-string');
+  await host.flush();
+  const list = host.get('#list').elements[0];
+  const leaving = list.children[1];
+  const animation = seedExitAnimation(leaving);
+
+  host.host.state.items = ['a', 'c'];
+  await host.flush();
+
+  assert.equal(list.children.length, 3, 'the leaving node is still in the DOM');
+  assert.equal(list.children[1], leaving, 'and it has not been shuffled to the end');
+  assert.ok(leaving.classList.contains('leaving'), 'the exit class is applied');
+  assert.equal(leaving.getAttribute('data-pfusch'), 'exit', 'and it is marked out of the diff');
+
+  animation.finish();
+  await host.flush();
+
+  assert.deepEqual([...list.children].map(n => n.id), ['item-a', 'item-c']);
+});
+
+test('a function exit runs the handler and awaits what it starts', async () => {
+  const seen = [];
+  pfusch('exit-function', { open: true }, (state) => [
+    state.open ? html.div({
+      id: 'panel',
+      exit: (e) => { seen.push('exit'); e.target.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150 }); },
+      unmount: () => { seen.push('unmount'); }
+    }, 'panel') : null
+  ]);
+
+  const host = pfuschTest('exit-function');
+  await host.flush();
+  const panel = host.get('#panel').elements[0];
+
+  host.host.state.open = false;
+  await host.flush();
+
+  assert.deepEqual(seen, ['exit'], 'unmount waits for the animation');
+  assert.equal(host.host.shadowRoot.children.length, 1);
+  assert.equal(panel.getAttribute('data-pfusch'), 'exit');
+
+  panel.getAnimations()[0].finish();
+  await host.flush();
+
+  assert.deepEqual(seen, ['exit', 'unmount']);
+  assert.equal(host.host.shadowRoot.children.length, 0);
+});
+
+test('exit without any animation removes the node on the next flush', async () => {
+  // This is also the reduced-motion path: the media query removes the animation,
+  // so nothing is pending and the node goes away immediately.
+  const seen = [];
+  pfusch('exit-noanim', { open: true }, (state) => [
+    state.open ? html.div({ id: 'panel', exit: 'leaving', unmount: () => { seen.push('unmount'); } }, 'panel') : null
+  ]);
+
+  const host = pfuschTest('exit-noanim');
+  await host.flush();
+
+  host.host.state.open = false;
+  await host.flush();
+
+  assert.equal(host.host.shadowRoot.children.length, 0);
+  assert.deepEqual(seen, ['unmount']);
+});
+
+test('an animation that is already running does not delay the removal', async () => {
+  pfusch('exit-running', { open: true }, (state) => [
+    state.open ? html.div({ id: 'panel', exit: 'leaving' }, 'panel') : null
+  ]);
+
+  const host = pfuschTest('exit-running');
+  await host.flush();
+  const panel = host.get('#panel').elements[0];
+  const running = panel.animate([{ transform: 'none' }], { duration: 5000 });
+  running.pending = false; // started long before the removal, so it is not an exit animation
+
+  host.host.state.open = false;
+  await host.flush();
+
+  assert.equal(host.host.shadowRoot.children.length, 0);
+});
+
+test('an exiting node is never recycled by the fast path', async () => {
+  // Unkeyed children, so the fast path has nothing but position to go on. Once the third
+  // node is exiting, three live nodes face three descriptors again: unless the exiting node
+  // is filtered out of oldNodes, the fast path hands it the third descriptor and the item
+  // disappears again when the old animation finishes.
+  pfusch('exit-nofastpath', { items: ['a', 'b', 'c'] }, (state) => [
+    html.ul({ id: 'list' }, ...state.items.map(i => html.li({ exit: 'leaving' }, i)))
+  ]);
+
+  const host = pfuschTest('exit-nofastpath');
+  await host.flush();
+  const list = host.get('#list').elements[0];
+  const leaving = list.children[2];
+  const animation = seedExitAnimation(leaving);
+
+  host.host.state.items = ['a', 'b'];
+  await host.flush();
+  assert.equal(leaving.getAttribute('data-pfusch'), 'exit');
+
+  host.host.state.items = ['a', 'b', 'c'];
+  await host.flush();
+
+  const live = [...list.children].filter(n => n.getAttribute('data-pfusch') === null);
+  assert.deepEqual(live.map(n => n.textContent), ['a', 'b', 'c']);
+  assert.notEqual(live[2], leaving, 'the exiting node is not recycled');
+
+  animation.finish();
+  await host.flush();
+  assert.deepEqual([...list.children].map(n => n.textContent), ['a', 'b', 'c']);
+});
+
+test('re-adding an id that is still exiting builds a fresh node', async () => {
+  pfusch('exit-readd', { items: ['a', 'b'] }, (state) => [
+    html.ul({ id: 'list' }, ...state.items.map(i => html.li({ id: `item-${i}`, exit: 'leaving' }, i)))
+  ]);
+
+  const host = pfuschTest('exit-readd');
+  await host.flush();
+  const list = host.get('#list').elements[0];
+  const leaving = list.children[1];
+  const animation = seedExitAnimation(leaving);
+
+  host.host.state.items = ['a'];
+  await host.flush();
+  host.host.state.items = ['a', 'b'];
+  await host.flush();
+
+  const readded = list.children.filter(n => n.id === 'item-b' && n.getAttribute('data-pfusch') === null);
+  assert.equal(readded.length, 1);
+  assert.notEqual(readded[0], leaving, 'the exiting node is not resurrected');
+
+  animation.finish();
+  await host.flush();
+
+  assert.deepEqual([...list.children].map(n => n.id), ['item-a', 'item-b']);
+});
+
+test('clearing a list to empty animates the children out when they declare exit', async () => {
+  pfusch('exit-clear', { items: ['a', 'b'] }, (state) => [
+    html.ul({ id: 'list' }, ...state.items.map(i => html.li({ id: `item-${i}`, exit: 'leaving' }, i)))
+  ]);
+
+  const host = pfuschTest('exit-clear');
+  await host.flush();
+  const list = host.get('#list').elements[0];
+  const animations = [...list.children].map(seedExitAnimation);
+
+  host.host.state.items = [];
+  await host.flush();
+
+  assert.equal(list.children.length, 2, 'the empty descriptor waits for the exits');
+  assert.ok([...list.children].every(n => n.getAttribute('data-pfusch') === 'exit'));
+
+  animations.forEach(a => a.finish());
+  await host.flush();
+
+  assert.equal(list.children.length, 0);
+});
+
+test('clearing a list to empty is still immediate without exit', async () => {
+  pfusch('exit-clear-plain', { items: ['a', 'b'] }, (state) => [
+    html.ul({ id: 'list' }, ...state.items.map(i => html.li({ id: `item-${i}` }, i)))
+  ]);
+
+  const host = pfuschTest('exit-clear-plain');
+  await host.flush();
+  const list = host.get('#list').elements[0];
+
+  host.host.state.items = [];
+  await host.flush();
+
+  assert.equal(list.children.length, 0);
+});
+
