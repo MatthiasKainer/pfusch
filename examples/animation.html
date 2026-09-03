@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pfusch — animation</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            margin: 0 auto;
+            padding: 2rem 1.25rem 4rem;
+            max-width: 46rem;
+            color: #1f2933;
+            background: #f7f9fb;
+        }
+
+        h1 {
+            margin-bottom: 0.25rem;
+        }
+
+        .lede {
+            color: #52606d;
+            margin-top: 0;
+        }
+
+        section {
+            background: #fff;
+            border: 1px solid #e1e7ec;
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        section h2 {
+            margin-top: 0;
+            font-size: 1.05rem;
+        }
+
+        section p.hint {
+            color: #52606d;
+            font-size: 0.9rem;
+            margin-top: 0;
+        }
+
+        button {
+            font: inherit;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid #b9c4cf;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #eef3f7;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Animating with pfusch</h1>
+    <p class="lede">Four lifecycle attrs — <code>keep</code>, <code>mount</code>, <code>unmount</code>,
+        <code>exit</code> — plus plain CSS. Every section here is asserted by
+        <code>e2e/tests-animation/animation.spec.js</code>.
+    </p>
+
+    <section>
+        <h2>1. An imperative engine inside a pfusch node</h2>
+        <p class="hint"><code>keep</code> hands the node's children to <code>StepStateIcon</code>;
+            <code>mount</code> builds it once, <code>unmount</code> tears it down. The parent only ever
+            changes an attribute — the engine node is never rebuilt, so <code>window.__mounts</code> stays at 1.
+        </p>
+        <step-row></step-row>
+    </section>
+
+    <section>
+        <h2>2. Enter and exit for a list</h2>
+        <p class="hint">Entering rows animate from <code>@starting-style</code>; leaving rows get
+            <code>exit: 'leaving'</code>, so pfusch keeps them in place until the animation finishes.
+        </p>
+        <todo-list></todo-list>
+    </section>
+
+    <section>
+        <h2>3. A function <code>exit</code> (Web Animations API)</h2>
+        <p class="hint">The handler starts the animation itself and pfusch awaits it. Under
+            <code>prefers-reduced-motion</code> it starts nothing, so the panel disappears at once.</p>
+        <exit-panel></exit-panel>
+    </section>
+
+    <section>
+        <h2>4. Reordering with View Transitions</h2>
+        <p class="hint">pfusch moves the existing nodes, so a
+            <code>document.startViewTransition</code> wrapper is all a FLIP needs. Nothing in the core.
+        </p>
+        <reorder-list></reorder-list>
+    </section>
+
+    <script type="module">
+        import { pfusch, html, css } from '../pfusch.js';
+        import { STEP_STATES, StepStateIcon } from './step-state-icon.js';
+
+        const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // ---------------------------------------------------------------- 1. engine host
+        pfusch('step-state-icon', { state: 'plan', size: 26, animate: true }, (state) => [
+            css`
+                :host { display: inline-flex; line-height: 0 }
+                [keep] { display: block; width: var(--size); height: var(--size) }
+                [keep] svg { width: 100%; height: 100% }
+            `,
+            html.span({
+                id: 'icon',
+                keep: true,
+                role: 'img',
+                'aria-label': `step ${state.state}`,
+                style: `--size:${state.size}px`,
+                mount(e) {
+                    const host = e.target;
+                    const icon = host._icon = new StepStateIcon(host, { state: state.state });
+                    host._off = state.subscribe('state', (next) =>
+                        state.animate && !prefersReducedMotion() ? icon.set(next) : icon.snapTo(next));
+                    window.__mounts = (window.__mounts || 0) + 1;
+                    icon.svg.dataset.instance = String(window.__mounts);
+                },
+                unmount(e) {
+                    e.target._off?.();
+                    e.target._icon?.destroy();
+                    window.__unmounts = (window.__unmounts || 0) + 1;
+                }
+            })
+        ]);
+
+        pfusch('step-row', { step: 'plan' }, (state) => [
+            css`
+                .row { display: flex; align-items: center; gap: 0.75rem }
+                code { font-size: 0.9rem; color: #52606d }
+            `,
+            html.div({ class: 'row' },
+                html['step-state-icon']({ id: 'step-1', state: state.step }),
+                html.code({ id: 'label' }, state.step),
+                html.button({
+                    id: 'next',
+                    click: () => { state.step = STEP_STATES[(STEP_STATES.indexOf(state.step) + 1) % STEP_STATES.length]; }
+                }, 'next state')
+            )
+        ]);
+
+        // ---------------------------------------------------------------- 2. list enter/exit
+        let nextTodoId = 4;
+
+        pfusch('todo-list', {
+            items: [{ id: 1, text: 'Design' }, { id: 2, text: 'Build' }, { id: 3, text: 'Ship' }]
+        }, (state) => [
+            css`
+                ul { list-style: none; margin: 0 0 0.75rem; padding: 0 }
+                li {
+                    display: flex; align-items: center; gap: 0.5rem;
+                    padding: 0.4rem 0.6rem; margin-bottom: 0.35rem;
+                    border: 1px solid #dbe3ea; border-radius: 6px; background: #fbfdff;
+                    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+                }
+                /* the enter animation: browsers with @starting-style transition from here */
+                @starting-style { li { opacity: 0; transform: translateY(-6px) } }
+                li.leaving { animation: leave 0.4s ease-in forwards }
+                @keyframes leave {
+                    to { opacity: 0; transform: translateX(28px) }
+                }
+                .label { flex: 1 }
+                @media (prefers-reduced-motion: reduce) {
+                    li { transition: none }
+                    li.leaving { animation: none }
+                    @starting-style { li { opacity: 1; transform: none } }
+                }
+            `,
+            html.p({ id: 'count' }, `${state.items.length} open`),
+            html.ul({ id: 'list' }, ...state.items.map(todo =>
+                html.li({ id: `todo-${todo.id}`, exit: 'leaving' },
+                    html.span({ class: 'label' }, todo.text),
+                    html.button({
+                        class: 'remove',
+                        'aria-label': `remove ${todo.text}`,
+                        click: () => { state.items = state.items.filter(x => x.id !== todo.id); }
+                    }, '✕')
+                )
+            )),
+            html.button({
+                id: 'add',
+                click: () => { state.items = [...state.items, { id: nextTodoId, text: `Item ${nextTodoId++}` }]; }
+            }, 'Add item')
+        ]);
+
+        // ---------------------------------------------------------------- 3. function exit
+        pfusch('exit-panel', { open: true }, (state) => [
+            css`
+                .panel {
+                    margin-top: 0.75rem; padding: 0.75rem;
+                    border: 1px solid #dbe3ea; border-radius: 8px; background: #fbfdff;
+                }
+            `,
+            html.button({ id: 'toggle', click: () => { state.open = !state.open; } },
+                state.open ? 'Hide panel' : 'Show panel'),
+            state.open ? html.div({
+                id: 'panel',
+                class: 'panel',
+                // No animation started => nothing pending => pfusch removes the node right away.
+                exit: (e) => {
+                    if (prefersReducedMotion()) return;
+                    e.target.animate(
+                        [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-10px)' }],
+                        { duration: 400, easing: 'ease-in', fill: 'forwards' }
+                    );
+                }
+            }, 'Removed by the Web Animations API, awaited by the differ.') : null
+        ]);
+
+        // ---------------------------------------------------------------- 4. view transitions
+        // Not part of pfusch: pfusch moves the existing nodes, the browser does the rest.
+        // The callback must not resolve until pfusch has rendered, hence the microtask wait.
+        const withTransition = (mutate) => {
+            if (!document.startViewTransition || prefersReducedMotion()) return mutate();
+            return document.startViewTransition(async () => {
+                mutate();
+                await new Promise(resolve => queueMicrotask(resolve));
+            });
+        };
+
+        pfusch('reorder-list', { order: ['alpha', 'beta', 'gamma', 'delta'] }, (state) => [
+            css`
+                ol { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 0.35rem }
+                li {
+                    padding: 0.4rem 0.6rem; border: 1px solid #dbe3ea;
+                    border-radius: 6px; background: #fbfdff;
+                }
+            `,
+            html.ol({ id: 'order' }, ...state.order.map(name =>
+                html.li({ id: `card-${name}`, style: `view-transition-name: card-${name}` }, name)
+            )),
+            html.button({
+                id: 'shuffle',
+                click: () => withTransition(() => { state.order = [...state.order.slice(1), state.order[0]]; })
+            }, 'rotate')
+        ]);
+    </script>
+</body>
+
+</html>
