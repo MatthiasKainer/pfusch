@@ -46,7 +46,7 @@ class Element {
 }
 
 const toElem = node => node?._t ? node : (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) ? { element: node } : node?.nodeType === 3 ? node.textContent : node;
-export const toElement = (desc) => { const el = document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (isBoolAttrValue(k, v)) { if (v) el.setAttribute(k, 'true'); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) { el.innerHTML = desc._html; return el; } for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c) : c.element || c); return el; };
+export const toElement = (desc) => { const el = document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (isBoolAttrValue(k, v)) { if (v) el.setAttribute(k, 'true'); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) el.innerHTML = desc._html; else for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c) : c.element || c); if (desc._re.mount) el.dispatchEvent(new CustomEvent('mount')); return el; };
 
 export const html = new Proxy({}, { get: (_, key) => key === 'raw' ? (content, ...tags) => ({ _t: 'span', _a: {}, _c: [], _re: {}, _html: str(content, ...tags) }) : (...args) => new Element(key, ...args) });
 
@@ -134,35 +134,36 @@ export function pfusch(tagName, initialState, template) {
             const old = Array.from(parent.children).filter(c => c.getAttribute('data-pfusch') === null), byId = new Map(old.filter(n => n.id).map(n => [n.id, n])), keep = new Set();
             const ensureId = (n, pos) => n._el ? (n._el.id || (n._el.id = this.getStableId(n._el.tagName, pos))) : (n._a.id || (n._a.id = this.getStableId(n._t, pos)));
 
-            const syncListeners = (t, src) => { if (!src._re && !t._re) return; t._re ??= {}; const inc = src._re || {}; for (const [ev, h] of Object.entries(inc)) if (t._re[ev] !== h) { if (t._re[ev]) t.removeEventListener(ev, t._re[ev]); t.addEventListener(ev, t._re[ev] = h); } for (const ev of Object.keys(t._re)) if (!inc[ev]) { t.removeEventListener(ev, t._re[ev]); delete t._re[ev]; } };
+            const syncListeners = (t, src) => { if (!src._re && !t._re) return; const fresh = !t._re; t._re ??= {}; const inc = src._re || {}; for (const [ev, h] of Object.entries(inc)) if (t._re[ev] !== h) { if (t._re[ev]) t.removeEventListener(ev, t._re[ev]); t.addEventListener(ev, t._re[ev] = h); } for (const ev of Object.keys(t._re)) if (!inc[ev]) { t.removeEventListener(ev, t._re[ev]); delete t._re[ev]; } if (fresh && inc.mount) t.dispatchEvent(new CustomEvent('mount')); };
             const syncAttrs = (t, src) => { const a = src._a || {}, seen = new Set(), n = t.tagName?.includes('-') ? k => String(k).toLowerCase() : k => String(k); for (const [k, v] of Object.entries(a)) { if (k === 'id' || typeof v === 'function') continue; const attr = n(k); if (isBoolAttrValue(k, v)) { if (v) { seen.add(attr); if (t.getAttribute(attr) !== 'true') t.setAttribute(attr, 'true'); } else if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } seen.add(attr); if (v == null) { if (t.hasAttribute(attr)) t.removeAttribute(attr); continue; } const sv = typeof v === o ? jstr(v) : String(v); if (t.getAttribute(attr) !== sv) t.setAttribute(attr, sv); } for (const at of Array.from(t.attributes)) { const attr = n(at.name); if (attr !== 'id' && !seen.has(attr)) t.removeAttribute(at.name); } };
             const syncProps = (t, src) => { const a = src._a || {}; boolAttrs.forEach(p => { if (!(p in a) || typeof a[p] !== 'boolean') return; if (a[p] !== t[p]) try { t[p] = a[p]; } catch {} }); if ('value' in a && !(document.activeElement === t || t.contains(document.activeElement)) && String(a.value) !== t.value) try { t.value = a.value; } catch {}; };
 
+            const drop = n => { n.remove(); if (n._re?.unmount) n.dispatchEvent(new CustomEvent('unmount')); };
             const syncNodeChildren = (o, n) => {
-                if (n._html !== undefined) { if (o.innerHTML !== n._html) o.innerHTML = n._html; return; }
+                if (n._a?.keep) return; if (n._html !== undefined) { if (o.innerHTML !== n._html) o.innerHTML = n._html; return; }
                 const newNodes = n._c || [];
                 if (!newNodes.length) { if (o.firstChild) o.textContent = ''; return; }
                 const oldNodes = Array.from(o.childNodes);
-                if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => { const d = newNodes[i]; return typeof d === 'string' ? c.nodeType === 3 : c.nodeType === 1 && c.tagName === (d._t?.toUpperCase() || d.element?.tagName || d.tagName); })) {
+                if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => { const d = newNodes[i]; return typeof d === 'string' ? c.nodeType === 3 : c.nodeType === 1 && c.tagName === (d._t?.toUpperCase() || d.element?.tagName || d.tagName) && (!d._a?.id || c.id == d._a.id); })) {
                     oldNodes.forEach((c, i) => { const d = newNodes[i]; typeof d === 'string' ? (c.textContent !== d && (c.textContent = d)) : d._t ? syncNode(c, d) : (c !== (d.element || d) && c.replaceWith(d.element || d)); });
                     return;
                 }
                 const textPool = [], elemById = new Map(), elemPools = new Map();
                 for (const c of Array.from(o.childNodes))
-                    if (c.nodeType === 3) textPool.push(c); else if (c.nodeType === 1) { if (c.id) elemById.set(c.id, c); else { const p = elemPools.get(c.tagName) || []; p.push(c); elemPools.set(c.tagName, p); } }
+                    if (c.nodeType === 3) textPool.push(c); else if (c.nodeType === 1) { if (c.id) elemById.set(String(c.id), c); else { const p = elemPools.get(c.tagName) || []; p.push(c); elemPools.set(c.tagName, p); } }
                 let anchor = null, elIdx = 0;
                 const place = node => { if (anchor) { if (anchor.nextSibling !== node) o.insertBefore(node, anchor.nextSibling); } else if (o.firstChild !== node) o.insertBefore(node, o.firstChild); anchor = node; };
                 newNodes.forEach(d => {
                     if (typeof d === 'string') { const r = textPool.shift(), t = r || document.createTextNode(d); if (r && r.textContent !== d) r.textContent = d; place(t); return; }
-                    if (d._t) { const tag = d._t.toUpperCase(); if (!d._a.id) d._a.id = `${d._t.toLowerCase()}-${elIdx}`; let t = elemById.get(d._a.id); if (t) elemById.delete(d._a.id); else { const p = elemPools.get(tag); if (p?.length) t = p.shift(); } place(t ? syncNode(t, d) : toElement(d)); elIdx++; }
+                    if (d._t) { const tag = d._t.toUpperCase(); if (!d._a.id) d._a.id = `${d._t.toLowerCase()}-${elIdx}`; let t = elemById.get(String(d._a.id)); if (t) elemById.delete(String(d._a.id)); else { const p = elemPools.get(tag); if (p?.length) t = p.shift(); } place(t ? syncNode(t, d) : toElement(d)); elIdx++; }
                     else { const el = d.element || d; place(el); }
                 });
-                [textPool, ...elemById.values(), ...[...elemPools.values()].flat()].flat().forEach(n => { if (n?.parentNode === o) n.remove(); });
+                [textPool, ...elemById.values(), ...[...elemPools.values()].flat()].flat().forEach(n => { if (n?.parentNode === o) drop(n); });
             };
 
             const syncNode = (o, n) => { if (n._el) { if (o !== n._el) { o.replaceWith(n._el); return n._el; } return o; } if (o.tagName !== n._t?.toUpperCase()) { const m = toElement(n); o.replaceWith(m); return m; } [syncListeners, syncAttrs, syncProps, syncNodeChildren].forEach(fn => fn(o, n)); return o; };
             const ordered = newChildren.map((n, idx) => { const id = ensureId(n, idx); const existing = byId.get(id); if (existing) byId.delete(id); const node = existing ? syncNode(existing, n) : parent.appendChild(n._el || toElement(n)); keep.add(node.id); return node; });
-            old.forEach(c => { if (!keep.has(c.id)) c.remove(); }); let anchor = null; for (const node of ordered) { if (!node.parentNode) continue; if (anchor ? anchor.nextElementSibling !== node : parent.firstElementChild !== node) parent.insertBefore(node, anchor?.nextElementSibling || parent.firstElementChild); anchor = node; }
+            old.forEach(c => { if (!keep.has(c.id)) drop(c); }); let anchor = null; for (const node of ordered) { if (!node.parentNode) continue; if (anchor ? anchor.nextElementSibling !== node : parent.firstElementChild !== node) parent.insertBefore(node, anchor?.nextElementSibling || parent.firstElementChild); anchor = node; }
         }
     }
     customElements.define(tagName, Pfusch);
