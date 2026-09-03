@@ -30,7 +30,15 @@
 - Mount components with `pfuschTest(tagName, attributes)`. Attributes are set on the element, objects/arrays are stringified for you.
 - Chain `.get(selector)` to keep drilling into the tree (shadow DOMs are traversed automatically). Helpers: `.length`, `.value`, `.checked`, `.textContent`, `.click()`, `.submit()`, `.at(index)`, `.elements` (raw nodes), `.map(cb)` and `await .flush()` to let scheduled renders complete.
   
-  
+- Animation-aware assertions: `FakeElement.animate(keyframes, options)` returns a fake `Animation`
+  (`pending`, `playState`, `finished`, `finish()`, `cancel()`) and registers it on the element, so
+  `element.getAnimations({ subtree: true })` sees it — that is exactly what pfusch's `exit` handling
+  awaits. Build a standalone one with the exported `createFakeAnimation({ pending, playState })`, e.g.
+  `createFakeAnimation({ pending: false })` to model an animation that was already running and must
+  therefore *not* delay removal. CSS-driven animations do not exist in the fake DOM, so a test for the
+  string form of `exit` seeds one with `node.animate(...)` before the removal it wants to observe.
+  `matchMedia()` also answers `addEventListener`/`removeEventListener` (no-ops, `matches: false`).
+
 ## Example
 ```js
 test('adds todos via form submission', async () => {
