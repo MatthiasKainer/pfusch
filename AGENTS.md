@@ -1,6 +1,6 @@
 # pfusch — agent reference
 
-pfusch is a ~172-line zero-dependency web component library (`pfusch.js`, no build step). It defines custom elements backed by Shadow DOM, direct-mutation state, and lightweight descriptor objects instead of a virtual DOM. This doc is the fast path to using it correctly — read the **Hard rules** before writing any component, they cover the behavior that isn't obvious from the API shape alone. The full source is pinned at the bottom as ground truth; if anything here conflicts with it, the source wins.
+pfusch is a ~175-line zero-dependency web component library (`pfusch.js`, no build step). It defines custom elements backed by Shadow DOM, direct-mutation state, and lightweight descriptor objects instead of a virtual DOM. This doc is the fast path to using it correctly — read the **Hard rules** before writing any component, they cover the behavior that isn't obvious from the API shape alone. The full source is pinned at the bottom as ground truth; if anything here conflicts with it, the source wins.
 
 ## Mental model
 
@@ -34,6 +34,7 @@ pfusch("live-counter", { count: 0 }, (state) => [
 |---|---|---|
 | `pfusch` | `(tagName, initialState = {}, template) => CustomElementClass` | Defines and registers the custom element. `initialState` is optional — if omitted, `template` becomes the second argument. |
 | `html` | `html.div(...)`, `html["my-tag"](...)` | Proxy that builds descriptors: `{ _t, _a, _c, _re }` (tag, attrs, children, event handlers). Never real DOM until pfusch patches it in. First object argument = attrs/events, everything else = children. Also supports tagged-template calls: `` html.h2`Hello ${x}` ``. |
+| `html.svg` | `html.svg({ viewBox: '0 0 24 24' }, html.circle(...))` | SVG tags render in the SVG namespace, so the browser paints them and CSS transitions run on the real nodes. Descendants of an `html.svg(...)` descriptor inherit the namespace; children of `foreignObject` return to HTML. Attribute case is preserved, so `viewBox`/`pathLength` work as written. |
 | `html.raw` | `` html.raw`<b>...</b>` `` | Raw HTML string as a child (sets `innerHTML`, bypasses descriptor diffing for that subtree). |
 | `css` | `` css`...` `` | Returns `{ type: 'style', content() }`; adopted into the component's shadow root. Cached globally by rendered text — **keep the template literal static**, don't interpolate per-instance values into it. |
 | `script` | `(fn) => { type: 'script', content: fn }` | Runs `fn` once per connected lifecycle with `this` bound to `{ component, shadowRoot, state, addEventListener, querySelector, querySelectorAll }`. It may return a cleanup function, which runs after disconnection; reconnecting runs `fn` again. |
@@ -183,6 +184,7 @@ const isEl = n => n && (n.nodeType === 1 || (typeof window !== 'undefined' && wi
 const isBoolAttrValue = (key, value) => boolAttrSet.has(key) && typeof value === 'boolean';
 // _f bitflags (kept as a single field to stay small after minification):
 const SCRIPTS_EXEC = 1, STYLES_INJECTED = 2, LINKS_CLONED = 4, RENDERING = 8, NEEDS_RERENDER = 16, INIT = 32, QUEUED = 64, UNMOUNTED = 128;
+const SVG_NS = 'http://www.w3.org/2000/svg';
 const attrNames = k => [k, k.toLowerCase(), k.replace(/[A-Z]/g, "-$&").toLowerCase()];
 const copyState = v => Array.isArray(v) ? v.map(copyState) : v && Object.getPrototypeOf(v) === Object.prototype ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, copyState(x)])) : v;
 
@@ -221,7 +223,7 @@ class Element {
 }
 
 const toElem = node => node?._t ? node : (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) ? { element: node } : node?.nodeType === 3 ? node.textContent : node;
-export const toElement = (desc) => { const el = document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (isBoolAttrValue(k, v)) { if (v) el.setAttribute(k, 'true'); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) el.innerHTML = desc._html; else for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c) : c.element || c); if (desc._re.mount) el.dispatchEvent(new CustomEvent('mount')); return el; };
+export const toElement = (desc, ns) => { ns = desc._t === 'svg' ? SVG_NS : ns; const el = ns ? document.createElementNS(ns, desc._t) : document.createElement(desc._t); for (const [k, v] of Object.entries(desc._a)) if (typeof v !== 'function' && v != null) { if (isBoolAttrValue(k, v)) { if (v) el.setAttribute(k, 'true'); } else el.setAttribute(k, typeof v === o ? jstr(v) : String(v)); } for (const [k, h] of Object.entries(desc._re)) { el._re ??= {}; el.addEventListener(k, el._re[k] = h); } if (desc._html !== undefined) el.innerHTML = desc._html; else for (const c of desc._c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c._t ? toElement(c, desc._t === 'foreignObject' ? undefined : ns) : c.element || c); if (desc._re.mount) el.dispatchEvent(new CustomEvent('mount')); return el; };
 
 export const html = new Proxy({}, { get: (_, key) => key === 'raw' ? (content, ...tags) => ({ _t: 'span', _a: {}, _c: [], _re: {}, _html: str(content, ...tags) }) : (...args) => new Element(key, ...args) });
 
@@ -315,30 +317,31 @@ export function pfusch(tagName, initialState, template) {
             const syncProps = (t, src) => { const a = src._a || {}; boolAttrs.forEach(p => { if (!(p in a) || typeof a[p] !== 'boolean') return; if (a[p] !== t[p]) try { t[p] = a[p]; } catch {} }); if ('value' in a && !(document.activeElement === t || t.contains(document.activeElement)) && String(a.value) !== t.value) try { t.value = a.value; } catch {}; };
 
             const nx = (n, s) => { while (n && n.getAttribute?.('data-pfusch') != null) n = n[s]; return n; };
+            const nsOf = p => p?.namespaceURI === SVG_NS && p.tagName !== 'foreignObject' ? SVG_NS : undefined; // foreignObject hands its children back to HTML
             const hasExit = n => !!(n._re?.exit || n.getAttribute?.('exit') != null), drop = async n => { const un = () => { if (n.nodeType === 1) this.lifecycle('unmount', n); }; if (n.nodeType !== 1 || !hasExit(n)) { n.remove(); return un(); } if (n.getAttribute('data-pfusch') !== null) return; const cls = n.getAttribute('exit'); n.setAttribute('data-pfusch', 'exit'); if (cls) n.classList.add(...cls.split(' ').filter(Boolean)); n.dispatchEvent(new CustomEvent('exit')); await Promise.allSettled((n.getAnimations?.({ subtree: true }) || []).filter(a => a.pending).map(a => a.finished)); n.remove(); un(); };
             const syncNodeChildren = (o, n) => {
                 if (n._a?.keep) return; if (n._html !== undefined) { if (o.innerHTML !== n._html) o.innerHTML = n._html; return; }
                 const newNodes = n._c || [];
                 if (!newNodes.length) { if (o.firstChild) { const ch = Array.from(o.childNodes); ch.some(c => c.nodeType === 1) ? ch.forEach(drop) : (o.textContent = ''); } return; }
-                const oldNodes = Array.from(o.childNodes).filter(c => c.getAttribute?.('data-pfusch') == null);
-                if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => { const d = newNodes[i]; return typeof d === 'string' ? c.nodeType === 3 : c.nodeType === 1 && c.tagName === (d._t?.toUpperCase() || d.element?.tagName || d.tagName) && (!d._a?.id || c.id == d._a.id); })) {
-                    oldNodes.forEach((c, i) => { const d = newNodes[i]; typeof d === 'string' ? (c.textContent !== d && (c.textContent = d)) : d._t ? syncNode(c, d) : (c !== (d.element || d) && c.replaceWith(d.element || d)); });
+                const oldNodes = Array.from(o.childNodes).filter(c => c.getAttribute?.('data-pfusch') == null), ns = nsOf(o);
+                if (oldNodes.length === newNodes.length && oldNodes.every((c, i) => { const d = newNodes[i]; return typeof d === 'string' ? c.nodeType === 3 : c.nodeType === 1 && c.tagName.toUpperCase() === (d._t || d.element?.tagName || d.tagName || '').toUpperCase() && (!d._a?.id || c.id == d._a.id); })) {
+                    oldNodes.forEach((c, i) => { const d = newNodes[i]; typeof d === 'string' ? (c.textContent !== d && (c.textContent = d)) : d._t ? syncNode(c, d, ns) : (c !== (d.element || d) && c.replaceWith(d.element || d)); });
                     return;
                 }
                 const textPool = [], elemById = new Map(), elemPools = new Map();
                 for (const c of oldNodes)
-                    if (c.nodeType === 3) textPool.push(c); else if (c.nodeType === 1) { if (c.id) elemById.set(String(c.id), c); else { const p = elemPools.get(c.tagName) || []; p.push(c); elemPools.set(c.tagName, p); } }
+                    if (c.nodeType === 3) textPool.push(c); else if (c.nodeType === 1) { if (c.id) elemById.set(String(c.id), c); else { const k = c.tagName.toUpperCase(), p = elemPools.get(k) || []; p.push(c); elemPools.set(k, p); } }
                 let anchor = null, elIdx = 0;
                 const place = node => { const ref = nx(anchor ? anchor.nextSibling : o.firstChild, 'nextSibling'); if (ref !== node) o.insertBefore(node, ref); anchor = node; };
                 const resolved = newNodes.map(d => {
                     if (typeof d === 'string') { const r = textPool.shift(), t = r || document.createTextNode(d); if (r && r.textContent !== d) r.textContent = d; return t; }
                     if (!d._t) return d.element || d;
-                    const tag = d._t.toUpperCase(); if (!d._a.id) d._a.id = `${d._t.toLowerCase()}-${elIdx}`; let t = elemById.get(String(d._a.id)); if (t) elemById.delete(String(d._a.id)); else { const p = elemPools.get(tag); if (p?.length) t = p.shift(); } elIdx++; return t ? syncNode(t, d) : toElement(d);
+                    const tag = d._t.toUpperCase(); if (!d._a.id) d._a.id = `${d._t.toLowerCase()}-${elIdx}`; let t = elemById.get(String(d._a.id)); if (t) elemById.delete(String(d._a.id)); else { const p = elemPools.get(tag); if (p?.length) t = p.shift(); } elIdx++; return t ? syncNode(t, d, ns) : toElement(d, ns);
                 });
                 [textPool, ...elemById.values(), ...[...elemPools.values()].flat()].flat().forEach(n => { if (n?.parentNode === o) drop(n); }); resolved.forEach(place);
             };
 
-            const syncNode = (o, n) => { if (n._el) { if (o !== n._el) { o.replaceWith(n._el); return n._el; } return o; } if (o.tagName !== n._t?.toUpperCase()) { const m = toElement(n); o.replaceWith(m); return m; } [syncListeners, syncAttrs, syncProps, syncNodeChildren].forEach(fn => fn(o, n)); return o; };
+            const syncNode = (o, n, ns = nsOf(o.parentNode)) => { if (n._el) { if (o !== n._el) { o.replaceWith(n._el); return n._el; } return o; } if (o.tagName?.toUpperCase() !== n._t?.toUpperCase()) { const m = toElement(n, ns); o.replaceWith(m); return m; } [syncListeners, syncAttrs, syncProps, syncNodeChildren].forEach(fn => fn(o, n)); return o; };
             const ordered = newChildren.map((n, idx) => { const id = ensureId(n, idx); const existing = byId.get(id); if (existing) byId.delete(id); const node = existing ? syncNode(existing, n) : parent.appendChild(n._el || toElement(n)); keep.add(node.id); return node; });
             old.forEach(c => { if (!keep.has(c.id)) drop(c); }); let anchor = null; for (const node of ordered) { if (!node.parentNode) continue; const ref = nx(anchor ? anchor.nextElementSibling : parent.firstElementChild, 'nextElementSibling'); if (ref !== node) parent.insertBefore(node, ref); anchor = node; }
         }

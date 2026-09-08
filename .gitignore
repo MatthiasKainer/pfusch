@@ -1,3 +1,6 @@
 tmp/
 test-results/
 performance/snapshots/
+
+# Serena MCP local project config
+.serena/

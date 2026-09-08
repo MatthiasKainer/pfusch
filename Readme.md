@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-173-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-13K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.8K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-175-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-14K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.9K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -947,6 +947,21 @@ For static markup, prefer `html.raw` — it's the more common, more discoverable
 ### And whats with all that `html.*` things?
 
 This gives you access to all html elements (and the elements you created). For html elements, do `html.name`, for web components do `html["name"]`. Any attributes & events can be passed as first argument, the inner content as second (as string or another `html.*`). If you don't have any attributes, just add the inner content.
+
+SVG works the same way: `html.svg(...)` and everything below it is created in the SVG namespace, so the browser actually paints it — and because pfusch patches those nodes in place, a class change on `<svg>` runs your CSS transition instead of rebuilding the tree. Attribute case is kept, so `viewBox` and `pathLength` go in as written. Children of `foreignObject` are created as HTML again. See [`examples/svg.html`](examples/svg.html).
+
+```js
+pfusch("svg-ring", { tone: "plan" }, (state) => [
+    css`
+        .ring { fill: none; stroke-width: 3; transition: stroke .3s ease-out }
+        .tone-plan .ring { stroke: gray }
+        .tone-done .ring { stroke: green }
+    `,
+    html.svg({ viewBox: "0 0 64 64", class: `tone-${state.tone}` },
+        html.circle({ class: "ring", cx: "32", cy: "32", r: "20" })
+    )
+]);
+```
 
 
 ### None of my react tricks work here! This is bollocks!
