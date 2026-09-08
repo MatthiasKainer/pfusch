@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pfusch — svg</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            margin: 0 auto;
+            padding: 2rem 1.25rem 4rem;
+            max-width: 46rem;
+            color: #1f2933;
+            background: #f7f9fb;
+        }
+
+        h1 {
+            margin-bottom: 0.25rem;
+        }
+
+        .lede {
+            color: #52606d;
+            margin-top: 0;
+        }
+
+        section {
+            background: #fff;
+            border: 1px solid #e1e7ec;
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        section h2 {
+            margin-top: 0;
+            font-size: 1.05rem;
+        }
+
+        section p.hint {
+            color: #52606d;
+            font-size: 0.9rem;
+            margin-top: 0;
+        }
+
+        button {
+            font: inherit;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid #b9c4cf;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #eef3f7;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>SVG with pfusch</h1>
+    <p class="lede"><code>html.svg(...)</code> renders in the SVG namespace, so the browser paints it and CSS
+        transitions run on the real nodes. Asserted by <code>e2e/tests-svg/svg.spec.js</code>.</p>
+
+    <section>
+        <h2>1. A declarative, animated ring</h2>
+        <p class="hint">Only a class on <code>&lt;svg&gt;</code> and the dash offset change between states.
+            The <code>&lt;circle&gt;</code> is never rebuilt, so the CSS transition keeps running and
+            <code>window.__ringMounts</code> stays at 1.</p>
+        <svg-ring></svg-ring>
+    </section>
+
+    <section>
+        <h2>2. <code>foreignObject</code> returns to HTML</h2>
+        <p class="hint">Children of <code>foreignObject</code> are created in the HTML namespace again, so a
+            plain <code>&lt;div&gt;</code> lays out and wraps as usual.</p>
+        <svg-label></svg-label>
+    </section>
+
+    <script type="module">
+        import { pfusch, html, css } from '../pfusch.js';
+
+        const TONES = ['plan', 'run', 'done', 'error'];
+        const DASH = { plan: 20, run: 45, done: 63, error: 63 };
+
+        // ---------------------------------------------------------------- 1. animated ring
+        pfusch('svg-ring', { tone: 'plan' }, (state) => [
+            css`
+                :host { display: block }
+                .row { display: flex; align-items: center; gap: 0.75rem }
+                svg { width: 64px; height: 64px }
+                .ring {
+                    fill: none;
+                    stroke-width: 3;
+                    stroke-linecap: round;
+                    transform: rotate(-90deg);
+                    transform-origin: 32px 32px;
+                    transition: stroke 0.3s ease-out, stroke-dashoffset 0.4s ease-out;
+                }
+                .tone-plan .ring { stroke: rgb(130, 130, 130) }
+                .tone-run  .ring { stroke: rgb(217, 119, 6) }
+                .tone-done .ring { stroke: rgb(22, 163, 74) }
+                .tone-error .ring { stroke: rgb(220, 38, 38) }
+                .track { fill: none; stroke: #e1e7ec; stroke-width: 3 }
+                code { font-size: 0.9rem; color: #52606d }
+            `,
+            html.div({ class: 'row' },
+                html.svg({
+                    id: 'ring',
+                    viewBox: '0 0 64 64',
+                    role: 'img',
+                    'aria-label': `step ${state.tone}`,
+                    class: `tone-${state.tone}`,
+                    // A rebuilt node would mount a second time and lose the stamp.
+                    mount(e) {
+                        window.__ringMounts = (window.__ringMounts || 0) + 1;
+                        e.target.__instance = window.__ringMounts;
+                    }
+                },
+                    html.circle({ class: 'track', cx: '32', cy: '32', r: '20' }),
+                    html.circle({
+                        class: 'ring', cx: '32', cy: '32', r: '20',
+                        pathLength: '63',
+                        'stroke-dasharray': '63',
+                        'stroke-dashoffset': String(63 - DASH[state.tone])
+                    }),
+                ),
+                html.code({ id: 'tone' }, state.tone),
+                html.button({
+                    id: 'next',
+                    click: () => { state.tone = TONES[(TONES.indexOf(state.tone) + 1) % TONES.length]; }
+                }, 'next state')
+            )
+        ]);
+
+        // ---------------------------------------------------------------- 2. foreignObject
+        pfusch('svg-label', { text: 'HTML inside SVG, wrapped by the browser.' }, (state) => [
+            css`
+                svg { width: 220px; height: 90px; border: 1px dashed #dbe3ea; border-radius: 6px }
+                .caption { font: 12px/1.35 system-ui, sans-serif; color: #1f2933; margin: 0 }
+            `,
+            html.svg({ id: 'card', viewBox: '0 0 220 90' },
+                html.rect({ id: 'plate', x: '6', y: '6', width: '208', height: '78', rx: '8', fill: '#eef3f7' }),
+                html.foreignObject({ id: 'slot', x: '14', y: '14', width: '192', height: '62' },
+                    html.p({ id: 'caption', class: 'caption' }, state.text)
+                )
+            ),
+            html.button({ id: 'shout', click: () => { state.text = state.text.toUpperCase(); } }, 'shout')
+        ]);
+    </script>
+</body>
+
+</html>

@@ -38,6 +38,7 @@ Because of the Shadow DOM, external CSS (like Bootstrap or Tailwind) won't apply
 *   **Internal Styles**: Use the `css` helper for component-specific logic.
 *   **Global Injection**: Add `data-pfusch` to your `<link rel="stylesheet">` tags in the `<head>`. `pfusch` will automatically clone these styles into every component's shadow root.
 *   **Base Styles**: A `<style id="pfusch-style">` in your document will be treated as "Base Styles" and injected into every component.
+*   **SVG**: `html.svg(...)` and its descendants are created in the SVG namespace, so they paint and animate like hand-written SVG; attribute case is preserved (`viewBox`, `pathLength`), and children of `foreignObject` are HTML again. Since pfusch patches these nodes in place, a class change on `<svg>` is enough to run a CSS transition.
 
 ## 6. Form Integration
 `pfusch` components are **Form Associated**. 

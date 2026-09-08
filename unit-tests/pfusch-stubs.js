@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { match } from 'node:assert';
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 const original = {
   window: globalThis.window,
   document: globalThis.document,
@@ -253,6 +255,7 @@ class FakeElement {
   constructor(tagName, ownerDocument) {
     this.tagName = String(tagName || '').toUpperCase();
     this.nodeType = 1;
+    this.namespaceURI = 'http://www.w3.org/1999/xhtml';
     this.ownerDocument = ownerDocument;
     this._childNodes = [];
     this._animations = [];
@@ -291,6 +294,13 @@ class FakeElement {
   }
   get firstChild() {
     return this.childNodes[0] || null;
+  }
+  // Layout is not modelled; enough for code that only checks "is this laid out at all".
+  get offsetWidth() {
+    return 0;
+  }
+  get offsetHeight() {
+    return 0;
   }
   get nextSibling() {
     if (!this.parentNode) return null;
@@ -524,6 +534,7 @@ class FakeElement {
     this._innerHTML = String(value ?? '');
     this._childNodes = [];
     this._textContent = '';
+    parseHtmlInto(this._innerHTML, this.ownerDocument || globalThis.document, this);
   }
   get textContent() {
     if (this.childNodes.length) {
@@ -840,6 +851,15 @@ class FakeDocument {
     element.ownerDocument = this;
     return element;
   }
+  // Browsers keep the authored case of an SVG tagName (`tagName === 'svg'`, `'foreignObject'`),
+  // unlike HTML, which uppercases it. Mirroring that here is what makes case-sensitive tag
+  // comparisons in the differ fail in node the same way they fail in a browser.
+  createElementNS(ns, tag) {
+    const element = new FakeElement(tag, this);
+    element.namespaceURI = String(ns ?? '');
+    if (element.namespaceURI === SVG_NS) element.tagName = String(tag || '');
+    return element;
+  }
   createTextNode(text) {
     const node = {
       nodeType: 3,
@@ -1054,12 +1074,16 @@ const parseHtmlInto = (html, document, parent) => {
       if (!inner) return;
       const [tagName] = inner.split(/\s+/);
       const attrsRaw = inner.slice(tagName.length).trim();
-      const el = document.createElement(tagName);
+      const host = stack[stack.length - 1];
+      const ns = tagName.toLowerCase() === 'svg' ? SVG_NS
+        : host?.namespaceURI === SVG_NS && host.tagName !== 'foreignObject' ? SVG_NS
+          : null;
+      const el = ns ? document.createElementNS(ns, tagName) : document.createElement(tagName);
       const attrs = parseAttributes(attrsRaw);
       Object.entries(attrs).forEach(([name, value]) => {
         el.setAttribute(name, value);
       });
-      stack[stack.length - 1].appendChild(el);
+      host.appendChild(el);
       if (!selfClosing && !voidTags.has(tagName.toLowerCase())) {
         stack.push(el);
       }
