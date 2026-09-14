@@ -5,7 +5,11 @@
   "scripts": {
     "build": "npm test && npm run e2e:test && bash scripts/build.sh",
     "test": "node --test",
+    "lint:test": "node --test unit-tests/lint/lint-rules.test.js",
     "perf:test": "node performance/huge-state.bench.js",
     "e2e:test": "cd e2e && npm i && npm test"
+  },
+  "devDependencies": {
+    "eslint": "^10.10.0"
   }
 }
