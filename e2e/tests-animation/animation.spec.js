@@ -135,4 +135,26 @@ test.describe('reordering', () => {
         await page.locator('reorder-list #shuffle').click();
         await expect(cards).toHaveText(['gamma', 'delta', 'alpha', 'beta']);
     });
+
+    for (const fallback of [false, true]) {
+        test(`a keyed row retains input focus${fallback ? ' without moveBefore' : ''}`, async ({ page }) => {
+            const result = await page.evaluate(async (fallback) => {
+                const { pfusch, html } = await import('/pfusch.js');
+                pfusch('keyed-focus', { keys: ['a', 'b'] }, ({ keys }) => [html.ul(
+                    keys.map(key => html.li({ 'data-pfusch-key': key }, html.input())),
+                )]);
+                const { shadowRoot: root, state } = document.body.appendChild(document.createElement('keyed-focus'));
+                const list = root.querySelector('ul');
+                if (fallback) list.moveBefore = undefined;
+                const input = list.lastElementChild.firstElementChild;
+                input.value = 'draft';
+                input.focus();
+                input.setSelectionRange(1, 3);
+                state.keys = ['b', 'a'];
+                await Promise.resolve();
+                return [list.querySelector('input') === input, root.activeElement === input, input.selectionStart, input.selectionEnd];
+            }, fallback);
+            expect(result).toEqual([true, true, 1, 3]);
+        });
+    }
 });

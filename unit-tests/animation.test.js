@@ -87,6 +87,34 @@ test('matchMedia stub supports addEventListener/removeEventListener', () => {
 // opaque string, so these tests grow the "engine" subtree with appendChild.
 const appendIcon = (e) => e.target.appendChild(document.createElement('i'));
 
+test('nested keys preserve rows across sliding and prepending, with false left unkeyed', async () => {
+  const unmounted = [];
+  pfusch('keyed-window', { keys: ['a', 'b'], footer: 'footer' }, ({ keys, footer }) => [html.ul(
+    ...keys.map(key => html.li({ 'data-pfusch-key': key, unmount: () => unmounted.push(key) }, key)),
+    html.li({ id: 'footer', 'data-pfusch-key': false, unmount: () => unmounted.push('footer') }, footer),
+  )]);
+  const host = pfuschTest('keyed-window');
+  await host.flush();
+  const list = host.host.shadowRoot.querySelector('ul');
+  const [a, b, footer] = list.children;
+  host.host.state.footer = 'updated';
+  await host.flush();
+  assert.equal(list.children[2] === footer, true);
+  assert.equal(footer.textContent, 'updated');
+  assert.equal(footer.hasAttribute('data-pfusch-key'), false);
+  host.host.state.keys = ['b', 'c'];
+  await host.flush();
+  assert.equal(list.children[0], b);
+  assert.equal(list.children[2], footer);
+  assert.deepEqual(unmounted, ['a']);
+  assert.notEqual(list.children[1], a);
+  const c = list.children[1];
+  host.host.state.keys = ['a', 'c', 'b'];
+  await host.flush();
+  assert.deepEqual(Array.from(list.children).slice(1), [c, b, footer]);
+  assert.deepEqual(unmounted, ['a']);
+});
+
 test('keep leaves author-owned children alone while attrs still sync', async () => {
   pfusch('keep-host', { label: 'plan' }, (state) => [
     html.span({ id: 'icon', keep: true, 'aria-label': state.label, mount: appendIcon })

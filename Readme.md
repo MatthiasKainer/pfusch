@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-175-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-14K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-4.9K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-200-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-14K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-5.1K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -893,6 +893,8 @@ pfusch('chart-box', { data: [] }, (state, trigger, { children }) => [
 That is the right shape when the node comes from the server or must outlive the component's renders. It is less declarative than `keep` — you own the node's attributes as well as its children, and `mount`/`unmount` do not apply, so cleanup goes in `script()`'s return value.
 
 **Reserved names.** `keep`, `mount`, `unmount` and `exit` are reserved attribute names on descriptors, next to `id`. `data-pfusch` is reserved on real nodes — pfusch uses it for injected `<link>`/`<style>` clones and for nodes that are animating out, and it ignores any node carrying it. Don't set it yourself, and don't declare a state key called `as`, `id`, `inject-styles` or `inject-links`.
+
+**Stable nested list items.** Use a unique, stable `data-pfusch-key` on sibling descriptors whose positions can change, for example `html.li({ 'data-pfusch-key': item.id }, item.name)`. A non-empty string or number matches the existing nested node by key rather than by position, without requiring a globally unique DOM `id`. Other values, including `false` and the empty string, leave the descriptor unkeyed.
 
 All four live and runnable: [`examples/animation.html`](examples/animation.html).
 
