@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pfusch — light DOM</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            margin: 0 auto;
+            padding: 2rem 1.25rem 4rem;
+            max-width: 46rem;
+            color: #1f2933;
+            background: #f7f9fb;
+        }
+
+        .lede {
+            color: #52606d;
+            margin-top: 0;
+        }
+
+        .card {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e1e7ec;
+            border-radius: 8px;
+            background: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Light DOM</h1>
+    <p class="lede">
+        A thread (Shadow DOM) draws its turns as light-DOM components: each turn renders on its own, the thread's CSS
+        still styles it, and a card slotted into the thread shows inside a turn.
+    </p>
+
+    <chat-thread>
+        <div class="card" slot="card-2">A card slotted into the thread, shown inside turn 2</div>
+    </chat-thread>
+
+    <script type="module">
+        import { pfusch, html, css } from '../pfusch.js';
+
+        window.__threadRenders = 0;
+        window.__turnRenders = {};
+
+        // A turn: light DOM, so it sits in the thread's shadow tree. Its likes are its own state.
+        pfusch('chat-turn', { n: 0, likes: 0 }, (state) => {
+            window.__turnRenders[state.n] = (window.__turnRenders[state.n] || 0) + 1;
+            return [
+                html.div({ class: 'turn', 'data-n': String(state.n) },
+                    html.p({ class: 'text' }, `Turn ${state.n}`),
+                    html.button({ class: 'like', click: () => state.likes++ }, `Like (${state.likes})`),
+                    state.n === 2 ? html.slot({ name: 'card-2' }) : null
+                )
+            ];
+        }, { shadow: false });
+
+        pfusch('chat-thread', { count: 3, title: 'Thread' }, (state) => {
+            window.__threadRenders += 1;
+            return [
+                css`
+                    .turn { border-left: 3px solid rgb(22, 163, 74); padding-left: 0.5rem; margin: 0.5rem 0; }
+                    .turn .text { color: rgb(130, 40, 200); margin: 0; }
+                    .turn > slot::slotted(.card) { margin-top: 0.25rem; }
+                `,
+                html.h2({ class: 'title' }, state.title),
+                html.button({ class: 'rename', click: () => { state.title = `${state.title}!`; } }, 'Rename the thread'),
+                html.button({ class: 'add', click: () => { state.count++; } }, 'Add a turn'),
+                html.div({ class: 'turns' },
+                    ...Array.from({ length: state.count }, (_, i) => html['chat-turn']({ n: i + 1, 'data-pfusch-key': `turn-${i + 1}` })))
+            ];
+        });
+    </script>
+</body>
+
+</html>

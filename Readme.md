@@ -1,6 +1,6 @@
 # pfusch
 
-![lines of code](https://img.shields.io/badge/loc-200-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-14K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-5.1K-green?label=gzipped%20size)
+![lines of code](https://img.shields.io/badge/loc-207-green?label=lines%20of%20code) ![raw size](https://img.shields.io/badge/size-15K-green?label=size) ![gzipped](https://img.shields.io/badge/gzipped-5.3K-green?label=gzipped%20size)
 
 > pfusch [pfʊʃ]: Austrian slang word refering to work that is done carelessly, unprofessionally, or without proper skill, resulting in poor quality or subpar results.
 
@@ -733,6 +733,25 @@ This will add the stylesheet/style tag to the shadow dom of every component (onc
 ```
 
 Note the caveat above: `css` template literals are cached by their rendered text across every component instance, so keep them static — don't interpolate per-instance or frequently-changing values into a `css\`...\`` call, or the cache will grow without bound.
+
+### Can a component skip the Shadow DOM?
+
+Yes: pass `{ shadow: false }` as the last argument. The component renders into the element itself, so it is part of whatever tree it sits in — the page, or the shadow root of the component that drew it. That is what you want for one row of a long list, or one turn of a chat thread: the row renders on its own when its data changes, while the list's CSS still styles it, a card slotted into the list can show inside the row, and the list's scripts can still find what is in it.
+
+```js
+pfusch("chat-turn", { text: "", likes: 0 }, (state) => [
+  html.div({ class: "turn" },
+    html.p(state.text),
+    html.button({ click: () => state.likes++ }, `Like (${state.likes})`))
+], { shadow: false });
+
+pfusch("chat-thread", { turns: [] }, (state) => [
+  css`.turn { border-left: 3px solid green; }`,  // styles every chat-turn in this thread
+  ...state.turns.map((turn) => html["chat-turn"]({ "data-pfusch-key": turn.id, text: turn.text }))
+]);
+```
+
+A like re-renders that one turn, not the thread. The thread re-rendering leaves each turn's children alone: a parent only syncs a light component's attributes, as if it were marked `keep`. In exchange there is no encapsulation: a light component's `css` lands in the tree it sits in and applies to all of it, it has no slots or `children()` of its own, and markup written inside its tag is replaced when it first renders. See [examples/light.html](examples/light.html).
 
 ### Can I defer rendering a component until it's needed?
 

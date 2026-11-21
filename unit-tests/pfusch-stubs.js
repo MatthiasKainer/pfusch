@@ -584,7 +584,12 @@ class FakeElement {
     this.attributes.set('action', this._action);
   }
   getRootNode() {
-    return this.ownerDocument || this;
+    // As in a browser: the shadow root a node sits in, else its document once attached, else its topmost ancestor.
+    let current = this;
+    while (current.parentNode) current = current.parentNode;
+    if (current instanceof FakeShadowRoot) return current;
+    const doc = this.ownerDocument;
+    return doc && (current === doc.body || current === doc.documentElement) ? doc : current;
   }
   getElementById(id) {
     return this.querySelector(`#${id}`);
